@@ -10,4 +10,9 @@
     <ProjectReference Include="..\Beam.Core\Beam.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.8" />
+    <PackageReference Include="System.Threading.Tasks.Dataflow" Version="8.0.1" />
+  </ItemGroup>
+
 </Project>
