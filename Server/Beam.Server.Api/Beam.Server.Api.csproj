@@ -24,8 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Beam.Server.Application\Beam.Server.Application.csproj" />
-    <ProjectReference Include="..\Beam.Shared.Models\Beam.Shared.Models.csproj" />
+    <ProjectReference Include="..\..\Server\Beam.Server.Application\Beam.Server.Application.csproj" />
+    <ProjectReference Include="..\..\Shared\Beam.Shared.Models\Beam.Shared.Models.csproj" />
   </ItemGroup>
 
 </Project>

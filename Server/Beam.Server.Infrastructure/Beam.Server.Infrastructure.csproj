@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Beam.Server.Core\Beam.Server.Core.csproj" />
+    <ProjectReference Include="..\..\Server\Beam.Server.Core\Beam.Server.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

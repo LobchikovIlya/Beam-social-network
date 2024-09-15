@@ -3,17 +3,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Client.BlazorWasm", "Beam.Client\Beam.Client.BlazorWasm.csproj", "{A6931C54-0893-48B4-B694-BCB95A13B5EF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Client.BlazorWasm", "Client\Beam.Client\Beam.Client.BlazorWasm.csproj", "{A6931C54-0893-48B4-B694-BCB95A13B5EF}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Server.Api", "Beam.Server.Api\Beam.Server.Api.csproj", "{76134BFA-1310-44A1-8839-E71ACCF4A58B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Server.Api", "Server\Beam.Server.Api\Beam.Server.Api.csproj", "{76134BFA-1310-44A1-8839-E71ACCF4A58B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Server.Application", "Beam.Server.Application\Beam.Server.Application.csproj", "{88C17C34-FA4F-4BC5-88A9-5A4074E83E4E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Server.Application", "Server\Beam.Server.Application\Beam.Server.Application.csproj", "{88C17C34-FA4F-4BC5-88A9-5A4074E83E4E}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Server.Core", "Beam.Server.Core\Beam.Server.Core.csproj", "{99FA2DD0-4EE8-42F9-BCD9-5C4D7139E952}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Server.Core", "Server\Beam.Server.Core\Beam.Server.Core.csproj", "{99FA2DD0-4EE8-42F9-BCD9-5C4D7139E952}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Server.Infrastructure", "Beam.Server.Infrastructure\Beam.Server.Infrastructure.csproj", "{9BFE517D-C840-4B86-88DC-0102F00E173F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Server.Infrastructure", "Server\Beam.Server.Infrastructure\Beam.Server.Infrastructure.csproj", "{9BFE517D-C840-4B86-88DC-0102F00E173F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Shared.Models", "Beam.Shared.Models\Beam.Shared.Models.csproj", "{66ECD0AC-7004-4479-9DDB-5A4D9024291A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beam.Shared.Models", "Shared\Beam.Shared.Models\Beam.Shared.Models.csproj", "{66ECD0AC-7004-4479-9DDB-5A4D9024291A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Server", "Server", "{99F1994E-2D5B-47CD-8776-5EDCA66E66F5}"
 EndProject
