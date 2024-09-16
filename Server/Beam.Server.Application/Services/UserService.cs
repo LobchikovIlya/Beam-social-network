@@ -3,6 +3,7 @@ using Beam.Application.Utilities;
 using Beam.Core.Exceptions;
 using Beam.Infrastructure;
 using Beam.Infrastructure.Entities;
+using Beam.Shared.Dto;
 using Microsoft.EntityFrameworkCore;
 
 namespace Beam.Application.Services;
@@ -32,20 +33,27 @@ public class UserService : IUserService
         return user;
     }
 
-    public async Task<Guid> CreateAsync(User input)
+    public async Task<UserDto> CreateAsync(UserInputDto input)
     {
         var user = new User
         {
             Id = Guid.NewGuid(),
             Tag = input.Tag,
             Name = input.Name,
-            PasswordHash = PasswordHasher.HashPassword(input.PasswordHash),
+            PasswordHash = PasswordHasher.HashPassword(input.Password),
             CreationDate = DateTimeOffset.UtcNow
         };
-        await _dbContext.Users.AddAsync(input);
+        await _dbContext.Users.AddAsync(user);
         await _dbContext.SaveChangesAsync();
 
-        return input.Id;
+        return new UserDto
+        {
+                Id = user.Id,
+                Tag = user.Tag,
+                Name = user.Name,
+                CreationDate = user.CreationDate
+
+        };
     }
 
     public async Task<Guid> UpdateAsync(Guid id,User input)

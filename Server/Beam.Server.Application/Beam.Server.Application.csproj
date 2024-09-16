@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Server\Beam.Server.Infrastructure\Beam.Server.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Shared\Beam.Shared.Models\Beam.Shared.Models.csproj" />
   </ItemGroup>
 
   <ItemGroup>

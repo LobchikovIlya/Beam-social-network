@@ -1,4 +1,5 @@
 ﻿using Beam.Infrastructure.Entities;
+using Beam.Shared.Dto;
 
 
 namespace Beam.Application.Services.Interfaces;
@@ -9,7 +10,7 @@ public interface IUserService
     
     Task<User> GetByIdAsync(Guid id);
     
-    Task<Guid> CreateAsync(User input);
+    Task<UserDto> CreateAsync(UserInputDto input);
     
     Task<Guid> UpdateAsync(Guid id, User input);
     

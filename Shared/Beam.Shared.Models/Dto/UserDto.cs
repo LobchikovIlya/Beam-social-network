@@ -1,6 +1,6 @@
 ﻿namespace Beam.Shared.Dto;
 
-public class Userdto
+public class UserDto
 {
     public Guid Id { get; set; }
     public string Tag { get; set; }
