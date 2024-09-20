@@ -11,26 +11,43 @@ namespace Beam.Application.Services;
 public class UserService : IUserService
 {
     private readonly BeamDbContext _dbContext;
-
     public UserService(BeamDbContext dbContext)
     {
         _dbContext = dbContext;
     }
 
-    public async Task<List<User>> GetAllAsync()
+    public async Task<List<UserDto>> GetAllAsync()
     {
         var users = await _dbContext.Users.ToListAsync();
-        return users;
+        var userDtos = users.Select(user => new UserDto
+        {
+            Id = user.Id,
+            Tag = user.Tag,
+            Name = user.Name,
+            CreationDate = user.CreationDate
+            
+        }).ToList();
+
+        return userDtos;
     }
 
-    public async Task<User>GetByIdAsync(Guid id)
+    public async Task<UserDto>GetByIdAsync(Guid id)
     {
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == id);
         if (user == null)
         {
             throw new InvalidOperationException($"User Id {id} not found");
         }
-        return user;
+
+        var userDto = new UserDto
+        {
+            Id = user.Id,
+            Tag = user.Tag,
+            Name = user.Name,
+            CreationDate = user.CreationDate
+        };
+        
+        return userDto;
     }
 
     public async Task<UserDto> CreateAsync(UserInputDto input)
@@ -56,7 +73,7 @@ public class UserService : IUserService
         };
     }
 
-    public async Task<Guid> UpdateAsync(Guid id,User input)
+    public async Task<Guid> UpdateAsync(Guid id,UserInputDto input)
     {
         var user = await _dbContext.Users.FindAsync(id);
         if (user == null)
@@ -66,6 +83,11 @@ public class UserService : IUserService
 
         user.Name = input.Name;
         user.Tag = input.Tag;
+
+        if (!string.IsNullOrEmpty(input.Password))
+        {
+            user.PasswordHash = PasswordHasher.HashPassword(input.Password);
+        }
         
         await _dbContext.SaveChangesAsync();
 
