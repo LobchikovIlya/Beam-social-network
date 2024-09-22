@@ -31,12 +31,12 @@ public class UserService : IUserService
         return userDtos;
     }
 
-    public async Task<UserDto>GetByIdAsync(Guid id)
+    public async Task<UserDto> GetByIdAsync(Guid id)
     {
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == id);
         if (user == null)
         {
-            throw new InvalidOperationException($"User Id {id} not found");
+            throw new NotFoundException($"User Id {id} not found");
         }
 
         var userDto = new UserDto
@@ -65,10 +65,10 @@ public class UserService : IUserService
 
         return new UserDto
         {
-                Id = user.Id,
-                Tag = user.Tag,
-                Name = user.Name,
-                CreationDate = user.CreationDate
+            Id = user.Id,
+            Tag = user.Tag,
+            Name = user.Name,
+            CreationDate = user.CreationDate
 
         };
     }
