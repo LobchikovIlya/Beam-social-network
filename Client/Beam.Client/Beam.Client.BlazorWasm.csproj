@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Beam.Shared.Models\Beam.Shared.Models.csproj" />
+    <ProjectReference Include="..\..\Shared\Beam.Shared.Models\Beam.Shared.Models.csproj" />
   </ItemGroup>
 
 </Project>
