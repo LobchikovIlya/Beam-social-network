@@ -1,9 +1,9 @@
-﻿using Beam.Application.Services.Interfaces;
+﻿using Beam.Application.Dto;
+using Beam.Application.Services.Interfaces;
 using Beam.Application.Utilities;
 using Beam.Core.Exceptions;
 using Beam.Infrastructure;
 using Beam.Infrastructure.Entities;
-using Beam.Shared.Dto;
 using Microsoft.EntityFrameworkCore;
 
 namespace Beam.Application.Services;

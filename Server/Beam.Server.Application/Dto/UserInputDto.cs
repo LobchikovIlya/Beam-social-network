@@ -1,4 +1,4 @@
-﻿namespace Beam.Shared.Dto;
+﻿namespace Beam.Application.Dto;
 
 public class UserInputDto
 {
