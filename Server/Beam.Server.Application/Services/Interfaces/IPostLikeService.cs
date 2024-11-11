@@ -1,16 +1,14 @@
-﻿using Beam.Infrastructure.Entities;
+﻿using Beam.Application.Filters;
+using Beam.Infrastructure.Entities;
 
 namespace Beam.Application.Services.Interfaces;
 
-public interface IPostLike
+public interface IPostLikeService
 {
-    Task<List<PostLike>> GetAllAsync();
+    Task<List<PostLike>> GetAllAsync(PostLikeFilter filter);
+    
+    Task CreateAsync(Guid postId, Guid userId);
 
-    Task<PostLike> GetByIdAsync(Guid userId, Guid postId);
-
-    Task<Guid> CreateAsync(PostLike input);
-
-    Task<Guid> UpdateAsync(Guid id, PostLike input);
-
-    Task DeleteByIdAsync(Guid id);
+    Task DeleteAsync(Guid postId, Guid userId);
+    Task ToggleLikeAsync(Guid postId);
 }

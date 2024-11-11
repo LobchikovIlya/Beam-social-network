@@ -1,17 +1,33 @@
-﻿@inherits LayoutComponentBase
+﻿@using Beam.Application.Dto
+@using Beam.UI.Pages
+@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
+<div class="container d-flex flex-column" style="height: 100vh;overflow:hidden;">
+    <header class="top-row navbar navbar-expand-lg navbar-dark bg-dark px-4">
+        <div class="logo">
+            <a class="navbar-brand" href="/">Beam</a>
         </div>
+        <div class="auth-buttons d-flex">
+            <a class="btn btn-outline-light mx-2" href="/registration">Регистрация</a>
+            <a class="btn btn-outline-light mx-2" href="/login">Войти</a>
+            <a class="btn btn-outline-light mx-2" href="/logout">Выйти</a>
+        </div>
+    </header>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+    <div class="content d-flex flex-grow-1 overflow-hidden">
+        <aside class="sidebar  p-3" style="max-width: 250px; flex-shrink: 0;background-color: #1a1e29">
+            <NavMenu /> <!-- Компонент навигации -->
+        </aside>
+        <div class="wrapper">
+            <main class="main-content flex-grow-1 " style="max-height: calc(100vh - 56px); background: url('./images/image-phon.jpg') no-repeat top/cover ;">
+                @Body
+            </main>
+           @* <footer>
+                <CreatePost/>
+            </footer>*@
+        </div>
+    </div>
+       
 </div>
+
+

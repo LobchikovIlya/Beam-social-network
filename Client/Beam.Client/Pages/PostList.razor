@@ -1,6 +1,172 @@
-﻿@page "/PostList"
-<h3>PostList</h3>
+﻿@page "/posts"
+@using System.Net.Http.Headers
+@inject IJSRuntime JS
+@using Beam.UI.Dtos
+@using Blazored.LocalStorage
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+
+
 
 @code {
-    
+    private List<PostDto> posts = new List<PostDto>();
+    private bool isLoading = true;
+    private ElementReference postListContainer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPostsAsync();
+    }
+
+    private async Task LoadPostsAsync()
+    {
+        try
+        {
+            isLoading = true;
+            var token = await LocalStorage.GetItemAsync<string>("authToken");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost:5049/api/Post");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                var response = await Http.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    posts = await response.Content.ReadFromJsonAsync<List<PostDto>>();
+                }
+                else
+                {
+                    Console.WriteLine("Не удалось загрузить посты.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Токен не найден.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при загрузке постов: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ToggleLike(Guid postId)
+    {
+        try
+        {
+            var token = await LocalStorage.GetItemAsync<string>("authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                var post = posts.FirstOrDefault(p => p.Id == postId);
+                if (post == null) return;
+
+                HttpRequestMessage request;
+
+                if (post.IsLiked)
+                {
+                    request = new HttpRequestMessage(HttpMethod.Delete, $"http://localhost:5049/api/Post/{postId}/likes");
+                }
+                else
+                {
+                    request = new HttpRequestMessage(HttpMethod.Post, $"http://localhost:5049/api/Post/{postId}/likes");
+                }
+
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                var response = await Http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    post.IsLiked = !post.IsLiked;
+                    post.LikesCount += post.IsLiked ? 1 : -1;
+                }
+                else
+                {
+                    Console.WriteLine(post.IsLiked ? "Не удалось убрать лайк." : "Не удалось поставить лайк.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Токен не найден.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Произошла ошибка: {ex.Message}");
+        }
+    }
+
+    public async Task HandleNewPostCreated(PostDto newPost)
+    {
+        posts.Add(newPost);
+        await ScrollToBottomAsync();
+        StateHasChanged();
+    }
+
+    private async Task ScrollToBottomAsync()
+    {
+        await Task.Delay(100);
+        await JS.InvokeVoidAsync("scrollToBottom", postListContainer);
+    }
+
+}
+
+@if (isLoading)
+{
+    <p>Загрузка постов...</p>
+}
+else if (posts == null || !posts.Any())
+{
+    <p>Постов пока нет.</p>
+}
+else
+{
+    <div class="post-list-container">
+        <div class="post-list" @ref="postListContainer">
+            @foreach (var post in posts)
+            {
+                <div class="gradient-line"></div>
+                <div class="post-item  p-3">
+                    <div class="post-content">
+                        <p>@post.Content</p>
+                        <div class="post-footer">
+                            <div class="user-like">
+                                <p>@post.UserName</p>
+                                <div class="like-section">
+                                    <p class="like-count">@post.LikesCount</p>
+                                    <button @onclick="() => ToggleLike(post.Id)" class="like-button">
+                                        @if (post.IsLiked)
+                                        {
+                                            <i class="fas fa-heart" style="color: red;"></i>
+                                            <!-- Красное сердце -->
+                                        }
+                                        else
+                                        {
+                                            <i class="far fa-heart" style="color: grey;"></i>
+                                            <!-- Серое сердце -->
+                                        }
+                                    </button>
+                                </div>
+                            </div>
+
+                            <small class="creation-date">@post.CreationDate.ToString("g")</small>
+                        </div>
+                    </div>
+                    <div class="comment-block">
+                        <CommentPost PostId="@post.Id"/>
+                        <CommentList PostId="@post.Id"/>
+                    </div>
+
+                </div>
+            }
+        </div>
+
+        <div class="create-post-footer">
+            <CreatePost OnPostCreated="HandleNewPostCreated"/>
+        </div>
+    </div>
 }

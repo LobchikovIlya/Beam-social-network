@@ -1,6 +1,14 @@
-﻿namespace Beam.Api.Controllers;
+﻿using Microsoft.AspNetCore.Mvc;
 
-public class PingController
+namespace Beam.Api.Controllers;
+
+[Route("api/ping")]
+[ApiController]
+public class PingController : ControllerBase
 {
-    
+    [HttpGet]
+    public IActionResult Ping()
+    {
+        return Ok();
+    }
 }

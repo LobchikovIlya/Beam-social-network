@@ -1,6 +1,63 @@
 ﻿@page "/CommentPost"
-<h3>CommentPost</h3>
+@attribute [Authorize]
+
+@using System.Net.Http.Headers
+@using Beam.UI.Dtos
+@using Blazored.LocalStorage
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILocalStorageService LocalStorage
+@using Beam.Client.BlazorWasm.Services
+
+
+<EditForm Model="commentInputDto" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator/>
+    <ValidationSummary/>
+
+    <div class="form-group">
+        <label for="Content"></label>
+        <InputTextArea oninput="autoResize(this)" id="Content" @bind-Value="commentInputDto.Content" class="form-control-comment" placeholder="Коментарий..."/>
+        <button type="submit" class="btn-comment  fa fa-comments"></button>
+    </div>
+</EditForm>
+
 
 @code {
-    
+    [Parameter] public Guid PostId { get; set; }
+    private CommentInputDto commentInputDto = new CommentInputDto();
+    private bool isAuthenticated = false;
+
+
+    private async Task HandleValidSubmit()
+    {
+        var tokenJson = await LocalStorage.GetItemAsync<string>("authToken");
+        if (!string.IsNullOrEmpty(tokenJson))
+        {
+            var token = tokenJson;
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity.IsAuthenticated)
+            {
+                var tokenService = new TokenService();
+                var author = tokenService.GetUserNameFromToken(tokenJson);
+                commentInputDto.Author = author;
+            }
+
+            var response = await Http.PostAsJsonAsync($"/api/comment/{PostId}", commentInputDto);
+
+            if (response.IsSuccessStatusCode)
+            {
+                commentInputDto = new CommentInputDto();
+            }
+        }
+        else if (tokenJson == null)
+        {
+            // Если токена нет, считаем пользователя неавторизованным
+        }
+    }
+
 }

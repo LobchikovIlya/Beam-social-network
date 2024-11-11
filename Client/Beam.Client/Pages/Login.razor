@@ -1,6 +1,67 @@
-﻿@page "/Login"
-<h3>Login</h3>
+﻿@page "/login"
+@using Beam.UI.Dtos
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject Blazored.LocalStorage.ILocalStorageService localStorage
+@inject IJSRuntime js
+
+
+<h3>Вход в систему</h3>
+
+<EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator/>
+    <ValidationSummary/>
+
+    <div class="login-form-group">
+        <label for="username">Имя </label>
+        <InputText id="username" class="form-control-login" @bind-Value="loginModel.Tag"/>
+    </div>
+
+    <div class="login-form-group">
+        <label for="password">Пароль</label>
+        <InputText id="password" type="password" class="form-control-login" @bind-Value="loginModel.Password"/>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        <span class="oi oi-arrow-right" aria-hidden="true"></span> Войти
+    </button>
+</EditForm>
 
 @code {
-    
+    private LoginModelDto loginModel = new LoginModelDto();
+    private string errorMessage;
+
+    private async Task HandleLogin()
+    {
+        try
+        {
+            var response = await HttpClient.PostAsJsonAsync("/api/auth/login", loginModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponseDto>();
+                await js.InvokeVoidAsync("localStorage.setItem", "authToken", tokenResponse.Token);
+
+                var userName = loginModel.Tag;
+                await js.InvokeVoidAsync("localStorage.setItem", "userName", userName);
+
+                NavigationManager.NavigateTo("/");
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                NavigationManager.NavigateTo("/registration");
+                errorMessage = "Вы не зарегистрированы!!!";
+            }
+            else
+            {
+                errorMessage = "Ошибка входа. Проверьте имя пользователя и пароль.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Произошла ошибка при входе: " + ex.Message;
+        }
+    }
+
+
 }

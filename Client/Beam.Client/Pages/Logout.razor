@@ -1,6 +1,19 @@
-﻿@page "/Logout"
-<h3>Logout</h3>
+﻿@page "/logout"
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<button @onclick="LogoutSystem" class="btn btn-link">
+    <i class="fas fa-sign-out-alt"></i> Выйти
+</button>
 
 @code {
-    
+
+    private async Task LogoutSystem()
+    {
+        await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
+        await JS.InvokeVoidAsync("localStorage.removeItem", "userName");
+
+        NavigationManager.NavigateTo("/login");
+    }
+
 }

@@ -8,8 +8,7 @@
 
 
 @code {
-    [Parameter]
-    public Guid PostId { get; set; }
+    [Parameter] public Guid PostId { get; set; }
     private List<CommentDto> comments = new List<CommentDto>();
     private bool isLoading = true;
 
@@ -23,17 +22,10 @@
         try
         {
             isLoading = true;
-
-            // Получаем токен из LocalStorage
             var token = await LocalStorage.GetItemAsync<string>("authToken");
-
-
             if (!string.IsNullOrEmpty(token))
             {
-                // Устанавливаем заголовок авторизации
                 Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-                // Запрашиваем посты с вашего контроллера
                 comments = await Http.GetFromJsonAsync<List<CommentDto>>($"http://localhost:5049/api/comment/{postId}");
             }
             else
@@ -50,10 +42,12 @@
             isLoading = false;
         }
     }
+
     public async Task RefreshComments()
     {
         await LoadCommentsAsync(PostId);
     }
+
 }
 
 @if (isLoading)
@@ -70,17 +64,17 @@ else
     {
         bool showComments = false;
 
-        <div class="post-item mb-3 p-3">
-            <div class="post-content">
-                <p>@comment.Content</p>
+        <div class="post-item  p-3">
+            <div class="comment-content">
+                <p class="text-post">@comment.Content</p>
+                <div class="post-footer">
+                    <p>@comment.Author</p>
+                    <small class="creation-date p-3"> @comment.CreationDate.ToString("g")</small>
+                    <hr/>
+                </div>
             </div>
-            <div class="post-footer">
-                <p>Автор : @comment.Author</p>
-                <p>Id : @comment.Id</p>
-                <small class="creation-date">Создано: @comment.CreationDate.ToString("g")</small>
-            </div>
+
 
         </div>
     }
 }
-

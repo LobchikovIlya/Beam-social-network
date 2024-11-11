@@ -1,6 +1,91 @@
-﻿@page "/CreatePost"
-<h3>CreatePost</h3>
+﻿@page "/create-post"
+@attribute [Authorize]
+
+@using System.Net.Http.Headers
+@using Beam.UI.Dtos
+@using Blazored.LocalStorage
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILocalStorageService LocalStorage
+
+<EditForm Model="postInputDto" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator/>
+    <ValidationSummary/>
+
+    <div class="form-group">
+        <label for="Content"></label>
+        <InputTextArea id="Content" @bind-Value="userInput" class="form-control" placeholder="Новый пост..." @oninput="OnInputChange"/>
+
+        <button type="submit" class="icon-btn" disabled="@isButtonDisabled">
+            <i class="fa-solid fa-paper-plane @(isButtonDisabled ? "inactive" : "active")"></i>
+        </button>
+    </div>
+</EditForm>
 
 @code {
-    
+    private string userInput { get; set; } = string.Empty;
+    private bool isButtonDisabled => string.IsNullOrWhiteSpace(userInput);
+    private PostInputDto postInputDto = new PostInputDto();
+    private bool isAuthenticated = false;
+
+    [Parameter] public EventCallback<PostDto> OnPostCreated { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity.IsAuthenticated;
+    }
+
+    private void OnInputChange(ChangeEventArgs e)
+    {
+        userInput = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        var tokenJson = await LocalStorage.GetItemAsync<string>("authToken");
+
+        if (!string.IsNullOrEmpty(tokenJson))
+        {
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenJson);
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity.IsAuthenticated)
+            {
+                postInputDto.UserName = user.Identity.Name;
+            }
+
+            postInputDto.Content = userInput;
+
+            var response = await Http.PostAsJsonAsync("/api/Post", postInputDto);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var createdPost = await response.Content.ReadFromJsonAsync<PostDto>();
+                if (createdPost != null)
+                {
+                    await OnPostCreated.InvokeAsync(createdPost);
+                }
+
+
+                userInput = string.Empty;
+                postInputDto = new PostInputDto();
+
+
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine("Ошибка при отправке сообщения.");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Пользователь не авторизован. Токен отсутствует.");
+        }
+    }
+
 }

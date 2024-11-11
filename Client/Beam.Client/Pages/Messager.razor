@@ -1,6 +1,11 @@
-﻿@page "/Messager"
-<h3>Messager</h3>
+﻿@page "/messager"
 
-@code {
-    
-}
+
+<div class="posts-page-container d-flex flex-column" style="height: 100vh;">
+    <div class="posts-list flex-grow-1 overflow-auto p-3">
+        <PostList/>
+    </div>
+    <div class="create-post-area border-top p-3">
+        <CreatePost/>
+    </div>
+</div>

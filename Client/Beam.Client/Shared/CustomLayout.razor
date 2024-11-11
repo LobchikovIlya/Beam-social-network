@@ -1,5 +1,143 @@
-﻿<h3>CustomLayout</h3>
+﻿@inherits LayoutComponentBase
+@using Beam.UI.Pages
+@using Blazored.Modal
+@using Blazored.Modal.Services
+@inject IModalService ModalService
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<BlazoredModal />
+
+<div class="custom-layout container-fluid">
+    <header class="container-fluid bg-dark text-light py-3 mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1>Beam social network</h1>
+            </div>
+            <nav class="col-auto ms-auto">
+                @if (isAuthenticated)
+                {
+                    <button class="px-5 text-light" @onclick="Logout">Выйти</button>
+                }
+                else
+                {
+                    <button class="px-5 text-light" @onclick="ShowRegistrationModal">Регистрация</button>
+                    <button class="px-5 text-light" @onclick="ShowLoginModal">Войти</button>
+                }
+            </nav>
+        </div>
+    </header>
+
+    <div class="container-fluid flex-grow-1 d-flex">
+        @* <aside class="sidebar col-3 bg- p-3"> *@
+            <p class="text-white">Пользователи</p>
+            <div class="user-list">
+                <NavMenu />
+            </div>
+        @* </aside> *@
+
+        <main class="content col-9 d-flex flex-column p-3">
+            <div class="post-list flex-grow-1 overflow-auto">
+                <PostList />
+            </div>
+
+            <div class="post-creation">
+                <CreatePost />
+            </div>
+        </main>
+    </div>
+</div>
 
 @code {
-    
+    private bool isAuthenticated = false;
+
+    private  void ShowLoginModal()
+    {
+        var modal = ModalService.Show<Login>("Вход");
+        var result =  modal.Result;
+        
+    }
+
+    private bool isModalOpen = false;
+
+    private async Task ShowRegistrationModal()
+    {
+        if (isModalOpen) return;
+
+        isModalOpen = true;
+        var modal = ModalService.Show<Registration>("Регистрация");
+        var result = await modal.Result;
+        
+        isModalOpen = false;
+
+        if (!result.Cancelled)
+        {
+            isAuthenticated = true;
+            Console.WriteLine("Пользователь зарегистрировался.");
+        }
+    }
+
+    private async Task Logout()
+    {
+        isAuthenticated = false;
+        await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
+        await JS.InvokeVoidAsync("localStorage.removeItem", "userName");
+        NavigationManager.NavigateTo("/login");
+    }
 }
+
+<style>
+    body {
+        background-color: #181818;
+        color: #ffffff;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .custom-layout {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sidebar {
+        position: sticky;
+        top: 0;
+        height: calc(100vh - 120px);
+        overflow-y: auto;
+        border-radius: 5px;
+    }
+
+    .content {
+        height: calc(100vh - 120px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .post-list {
+        flex-grow: 1;
+        overflow-y: auto;
+        margin-bottom: 10px;
+    }
+
+    .post-creation {
+        margin-top: auto;
+        border-radius: 5px;
+        background-color: #282828;
+        padding: 10px;
+    }
+
+    .user-list {
+        max-height: calc(100% - 50px);
+        overflow-y: auto;
+    }
+
+    button {
+        background-color: #a69185;
+        border: none;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background-color: #4a6e8f;
+    }
+</style>

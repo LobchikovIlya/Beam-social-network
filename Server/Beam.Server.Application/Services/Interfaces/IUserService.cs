@@ -15,4 +15,7 @@ public interface IUserService
     Task<Guid> UpdateAsync(Guid id, UserInputDto input);
     
     Task DeleteByIdAsync(Guid id);
+
+    Task<UserDto> ValidateUserAsync(string username, string password);
+
 }

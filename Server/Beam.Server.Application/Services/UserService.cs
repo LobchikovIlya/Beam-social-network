@@ -11,6 +11,7 @@ namespace Beam.Application.Services;
 public class UserService : IUserService
 {
     private readonly BeamDbContext _dbContext;
+
     public UserService(BeamDbContext dbContext)
     {
         _dbContext = dbContext;
@@ -19,35 +20,30 @@ public class UserService : IUserService
     public async Task<List<UserDto>> GetAllAsync()
     {
         var users = await _dbContext.Users.ToListAsync();
-        var userDtos = users.Select(user => new UserDto
+        return users.Select(user => new UserDto
         {
             Id = user.Id,
             Tag = user.Tag,
             Name = user.Name,
             CreationDate = user.CreationDate
-            
         }).ToList();
-
-        return userDtos;
     }
 
     public async Task<UserDto> GetByIdAsync(Guid id)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == id);
+        var user = await _dbContext.Users.FindAsync(id);
         if (user == null)
         {
-            throw new NotFoundException($"User Id {id} not found");
+            throw new NotFoundException($"Пользователь с Id {id} не найден.");
         }
 
-        var userDto = new UserDto
+        return new UserDto
         {
             Id = user.Id,
             Tag = user.Tag,
             Name = user.Name,
             CreationDate = user.CreationDate
         };
-        
-        return userDto;
     }
 
     public async Task<UserDto> CreateAsync(UserInputDto input)
@@ -60,6 +56,7 @@ public class UserService : IUserService
             PasswordHash = PasswordHasher.HashPassword(input.Password),
             CreationDate = DateTimeOffset.UtcNow
         };
+
         await _dbContext.Users.AddAsync(user);
         await _dbContext.SaveChangesAsync();
 
@@ -69,16 +66,15 @@ public class UserService : IUserService
             Tag = user.Tag,
             Name = user.Name,
             CreationDate = user.CreationDate
-
         };
     }
 
-    public async Task<Guid> UpdateAsync(Guid id,UserInputDto input)
+    public async Task<Guid> UpdateAsync(Guid id, UserInputDto input)
     {
         var user = await _dbContext.Users.FindAsync(id);
         if (user == null)
         {
-            throw new NotFoundException($"User with Id {id} not found");
+            throw new NotFoundException($"Пользователь с Id {id} не найден.");
         }
 
         user.Name = input.Name;
@@ -88,7 +84,7 @@ public class UserService : IUserService
         {
             user.PasswordHash = PasswordHasher.HashPassword(input.Password);
         }
-        
+
         await _dbContext.SaveChangesAsync();
 
         return user.Id;
@@ -99,9 +95,34 @@ public class UserService : IUserService
         var user = await _dbContext.Users.FindAsync(id);
         if (user == null)
         {
-            throw new NotFoundException($"User Id {id}not found");
+            throw new NotFoundException($"Пользователь с Id {id} не найден.");
         }
+
         _dbContext.Users.Remove(user);
         await _dbContext.SaveChangesAsync();
+    }
+
+
+    public async Task<UserDto> ValidateUserAsync(string tag, string password)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Tag == tag);
+        if (user == null)
+        {
+            throw new NotFoundException("Пользователь не найден.");
+        }
+
+        bool isPasswordValid = PasswordHasher.VerifyPassword(user.PasswordHash, password);
+        if (!isPasswordValid)
+        {
+            throw new BadRequestException("Неверный пароль.");
+        }
+
+        return new UserDto
+        {
+            Id = user.Id,
+            Name = user.Name,
+            Tag = user.Tag,
+            CreationDate = user.CreationDate
+        };
     }
 }
