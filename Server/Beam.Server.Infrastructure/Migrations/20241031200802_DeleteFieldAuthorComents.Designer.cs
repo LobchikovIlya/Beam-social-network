@@ -3,6 +3,7 @@ using System;
 using Beam.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Beam.Infrastructure.Migrations
 {
     [DbContext(typeof(BeamDbContext))]
-    partial class BeamDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241031200802_DeleteFieldAuthorComents")]
+    partial class DeleteFieldAuthorComents
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -28,10 +31,6 @@ namespace Beam.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Author")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("text");
@@ -43,8 +42,6 @@ namespace Beam.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("PostId");
 
                     b.ToTable("Comments");
                 });
@@ -176,17 +173,6 @@ namespace Beam.Infrastructure.Migrations
                     b.ToTable("UsersToRoles");
                 });
 
-            modelBuilder.Entity("Beam.Infrastructure.Entities.Comment", b =>
-                {
-                    b.HasOne("Beam.Infrastructure.Entities.Post", "Post")
-                        .WithMany("Comments")
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Post");
-                });
-
             modelBuilder.Entity("Beam.Infrastructure.Entities.UsersToRole", b =>
                 {
                     b.HasOne("Beam.Infrastructure.Entities.Role", "Role")
@@ -204,11 +190,6 @@ namespace Beam.Infrastructure.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Beam.Infrastructure.Entities.Post", b =>
-                {
-                    b.Navigation("Comments");
                 });
 
             modelBuilder.Entity("Beam.Infrastructure.Entities.Role", b =>

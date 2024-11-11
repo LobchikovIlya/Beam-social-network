@@ -7,5 +7,6 @@ public class User
     public string PasswordHash { get; set; }
     public string Name { get; set; }
     public DateTimeOffset CreationDate { get; set; }
-    
+    public ICollection<UsersToRole> UsersToRoles { get; set; }
 }
+    

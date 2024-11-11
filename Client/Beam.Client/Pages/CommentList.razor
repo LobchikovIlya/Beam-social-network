@@ -1,0 +1,86 @@
+﻿@page "/CpommentList"
+@using System.Net.Http.Headers
+@using Beam.UI.Dtos
+@using Blazored.LocalStorage
+@inject ILocalStorageService LocalStorage
+@inject HttpClient Http
+
+
+
+@code {
+    [Parameter]
+    public Guid PostId { get; set; }
+    private List<CommentDto> comments = new List<CommentDto>();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCommentsAsync(PostId);
+    }
+
+    private async Task LoadCommentsAsync(Guid postId)
+    {
+        try
+        {
+            isLoading = true;
+
+            // Получаем токен из LocalStorage
+            var token = await LocalStorage.GetItemAsync<string>("authToken");
+
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                // Устанавливаем заголовок авторизации
+                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                // Запрашиваем посты с вашего контроллера
+                comments = await Http.GetFromJsonAsync<List<CommentDto>>($"http://localhost:5049/api/comment/{postId}");
+            }
+            else
+            {
+                Console.WriteLine("Токен не найден.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при загрузке комментариев: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    public async Task RefreshComments()
+    {
+        await LoadCommentsAsync(PostId);
+    }
+}
+
+@if (isLoading)
+{
+    <p>Загрузка комментариев...</p>
+}
+else if (comments == null || !comments.Any())
+{
+    <p>Комментариев пока нет.</p>
+}
+else
+{
+    @foreach (var comment in comments)
+    {
+        bool showComments = false;
+
+        <div class="post-item mb-3 p-3">
+            <div class="post-content">
+                <p>@comment.Content</p>
+            </div>
+            <div class="post-footer">
+                <p>Автор : @comment.Author</p>
+                <p>Id : @comment.Id</p>
+                <small class="creation-date">Создано: @comment.CreationDate.ToString("g")</small>
+            </div>
+
+        </div>
+    }
+}
+
