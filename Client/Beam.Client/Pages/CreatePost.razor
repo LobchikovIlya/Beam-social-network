@@ -6,6 +6,7 @@
 @using Blazored.LocalStorage
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.IdentityModel.JsonWebTokens
 @inject HttpClient Http
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILocalStorageService LocalStorage
@@ -52,10 +53,11 @@
             Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenJson);
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             var user = authState.User;
+            var tag = user.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.UniqueName)?.Value;
 
             if (user.Identity.IsAuthenticated)
             {
-                postInputDto.UserName = user.Identity.Name;
+                postInputDto.UserName = tag;
             }
 
             postInputDto.Content = userInput;

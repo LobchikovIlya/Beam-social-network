@@ -7,6 +7,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Beam.Application.Validators;
+using Beam.Infrastructure.Hubs;
+using FluentValidation;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +19,7 @@ var connectionString = builder.Configuration.GetConnectionString("BeamDatabase")
 // Добавление сервисов в контейнер
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSignalR();
 
 // Добавляем Swagger и поддержку JWT токенов в нём
 builder.Services.AddSwaggerGen(options =>
@@ -49,11 +54,12 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorApp",
-        builder =>
+        policy =>
         {
-            builder.WithOrigins("http://localhost:5109")
+            policy .WithOrigins("http://localhost:5109")
                 .AllowAnyMethod()
-                .AllowAnyHeader();
+                .AllowAnyHeader()
+                .AllowCredentials();
         });
 });
 
@@ -63,6 +69,7 @@ builder.Services.AddDbContext<BeamDbContext>(options => options.UseNpgsql(connec
 builder.Services.AddHttpContextAccessor();
 
 // Регистрация сервисов
+builder.Services.AddValidatorsFromAssemblyContaining<UserInputDtoValidator>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<IPostLikeService, PostLikeService>();
@@ -70,18 +77,26 @@ builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<ICommentLikeService, CommentLikeService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserRoleService, UserRoleService>();
+builder.Services.AddScoped<ICommentNotificationService,CommentNotificationService>();
+builder.Services.AddScoped<IPostNotificationService, PostNotificationService>();
+builder.Services.AddScoped<IPostLikeNotificationService, PostLikeNotificationService>();
+builder.Services.AddHostedService<UserActivityMonitorService>();
+builder.Services.AddScoped<IUserActivityService, UserActivityService>();
 
 builder.Services.AddAuthentication(options =>
 {
+    
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
+    
+    options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
+        ValidateIssuer = false,
+        ValidateAudience = false,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
@@ -106,13 +121,19 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
-app.UseCors("AllowBlazorApp");
-app.UseMiddleware<ExceptionHandlerMiddleware>();
+//app.UseHttpsRedirection();
 app.UseRouting();
+app.UseCors("AllowBlazorApp");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<ExceptionHandlerMiddleware>();
+app.UseMiddleware<UserActivityMiddleware>();
 
-app.UseEndpoints(endpoints => { endpoints.MapControllers(); });
+
+//app.UseWebSockets();
+app.MapHub<ChatHub>("/chatHub");
+
+app.MapControllers();
+
 
 app.Run();

@@ -1,8 +1,8 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Beam.Application.Dto;
 using Beam.Application.Services.Interfaces;
+using Beam.Shared.Dto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
@@ -25,6 +25,7 @@ public class TokenService : ITokenService
         var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.UniqueName, user.Tag),
             new Claim(ClaimTypes.Name, user.Name)    
         };
@@ -41,7 +42,7 @@ public class TokenService : ITokenService
             _configuration["Jwt:Issuer"],
             _configuration["Jwt:Audience"],
             claims,
-            expires: DateTime.Now.AddMinutes(30),
+            expires: DateTime.UtcNow.AddMinutes(30),
             signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

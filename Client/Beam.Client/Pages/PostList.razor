@@ -1,21 +1,118 @@
 ﻿@page "/posts"
 @using System.Net.Http.Headers
+@using System.Text
+@using Beam.Application.Services
+@using Beam.Application.Services.Interfaces
+@using Beam.Infrastructure.Entities
+@using Beam.Infrastructure.Hubs
+@using Microsoft.AspNetCore.SignalR.Client
 @inject IJSRuntime JS
 @using Beam.UI.Dtos
 @using Blazored.LocalStorage
+@using Microsoft.AspNetCore.SignalR
 @inject HttpClient Http
 @inject ILocalStorageService LocalStorage
 
 
-
 @code {
-    private List<PostDto> posts = new List<PostDto>();
+    private List<PostDto> posts = new();
     private bool isLoading = true;
     private ElementReference postListContainer;
+    private HubConnection? _hubConnection;
+    private readonly IHubContext<ChatHub> _hubContext;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadPostsAsync();
+        await InitializeSignalRConnection();
+    }
+
+    private async Task InitializeSignalRConnection()
+    {
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        if (string.IsNullOrEmpty(token)) return;
+        Console.WriteLine($"Токен перед подключением: {token}");
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl("http://localhost:5049/chatHub", options => { options.AccessTokenProvider = () => Task.FromResult(token); })
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<PostDto>("ReceivePostCreated", HandleNewPostCreated);
+
+        _hubConnection.On<PostDto>("ReceivePostLiked", post =>
+        {
+            // Обновление лайков по событию из SignalR
+            var existingPost = posts.FirstOrDefault(p => p.Id == post.Id);
+            if (existingPost != null)
+            {
+                existingPost.LikesCount = post.LikesCount;
+                //existingPost.IsLiked = post.IsLiked;
+                StateHasChanged();
+            }
+        });
+
+        _hubConnection.On<PostDto>("ReceivePostUnLiked", post =>
+        {
+            // Обновление лайков по событию из SignalR
+            var existingPost = posts.FirstOrDefault(p => p.Id == post.Id);
+            if (existingPost != null)
+            {
+                existingPost.LikesCount = post.LikesCount;
+                StateHasChanged();
+            }
+        });
+        _hubConnection.On<Guid, bool>("ReceivePostLikedStatus", (postId, isLiked) =>
+        {
+            var existingPost = posts.FirstOrDefault(p => p.Id == postId);
+            if (existingPost != null)
+            {
+                existingPost.IsLiked = isLiked;
+                StateHasChanged();
+            }
+        });
+      
+
+        _hubConnection.Reconnecting += (error) =>
+        {
+            Console.WriteLine($"Переподключение: {error?.Message}");
+            return Task.CompletedTask;
+        };
+
+        _hubConnection.Reconnected += (connectionId) =>
+        {
+            Console.WriteLine($"Подключение восстановлено. ID: {connectionId}");
+            return Task.CompletedTask;
+        };
+
+        try
+        {
+            Console.WriteLine("Подключение к SignalR...");
+            await _hubConnection.StartAsync();
+            Console.WriteLine("SignalR подключен!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка подключения к SignalR: {ex.Message}");
+        }
+    }
+
+    private readonly object _lock = new object();
+
+    private void UpdateLikeCount(Guid postId, int likeCount)
+    {
+        lock (_lock)
+        {
+            var post = posts.FirstOrDefault(p => p.Id == postId);
+            if (post != null)
+            {
+                post.LikesCount = likeCount;
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Пост с ID {postId} не найден.");
+            }
+        }
     }
 
     private async Task LoadPostsAsync()
@@ -24,7 +121,6 @@
         {
             isLoading = true;
             var token = await LocalStorage.GetItemAsync<string>("authToken");
-
             if (!string.IsNullOrEmpty(token))
             {
                 var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost:5049/api/Post");
@@ -34,6 +130,7 @@
                 if (response.IsSuccessStatusCode)
                 {
                     posts = await response.Content.ReadFromJsonAsync<List<PostDto>>();
+                    StateHasChanged();
                 }
                 else
                 {
@@ -60,57 +157,72 @@
         try
         {
             var token = await LocalStorage.GetItemAsync<string>("authToken");
-            if (!string.IsNullOrEmpty(token))
+            if (string.IsNullOrEmpty(token))
             {
-                var post = posts.FirstOrDefault(p => p.Id == postId);
-                if (post == null) return;
+                Console.WriteLine("Token is missing.");
+                return;
+            }
+            // Создаем запрос с токеном
+            var request = new HttpRequestMessage(HttpMethod.Post, $"http://localhost:5049/api/post/{postId}/likes");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
 
-                HttpRequestMessage request;
 
-                if (post.IsLiked)
-                {
-                    request = new HttpRequestMessage(HttpMethod.Delete, $"http://localhost:5049/api/Post/{postId}/likes");
-                }
-                else
-                {
-                    request = new HttpRequestMessage(HttpMethod.Post, $"http://localhost:5049/api/Post/{postId}/likes");
-                }
+            // Отправляем запрос для переключения лайка
+            var response = await Http.PostAsync($"http://localhost:5049/api/post/{postId}/likes", new StringContent(""));
 
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var updatedPost = await response.Content.ReadFromJsonAsync<PostDto>(); 
 
-                if (response.IsSuccessStatusCode)
+                if (updatedPost != null)
                 {
-                    post.IsLiked = !post.IsLiked;
-                    post.LikesCount += post.IsLiked ? 1 : -1;
-                }
-                else
-                {
-                    Console.WriteLine(post.IsLiked ? "Не удалось убрать лайк." : "Не удалось поставить лайк.");
+                    // Обновляем локальное состояние поста
+                    var existingPost = posts.FirstOrDefault(p => p.Id == updatedPost.Id);
+                    if (existingPost != null)
+                    {
+                        existingPost.IsLiked = updatedPost.IsLiked;
+                        existingPost.LikesCount = updatedPost.LikesCount;
+                        StateHasChanged();
+                    }
                 }
             }
             else
             {
-                Console.WriteLine("Токен не найден.");
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка: {response.StatusCode}, {errorMessage}");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Произошла ошибка: {ex.Message}");
+            Console.WriteLine($"Ошибка при отправке запроса: {ex.Message}");
         }
     }
 
     public async Task HandleNewPostCreated(PostDto newPost)
     {
-        posts.Add(newPost);
-        await ScrollToBottomAsync();
-        StateHasChanged();
+        Console.WriteLine("Новый пост получен: " + newPost.Id);
+        // Проверяем, существует ли уже пост с таким же Id
+        if (!posts.Any(p => p.Id == newPost.Id))
+        {
+            posts.Insert(0, newPost); // Добавляем новый пост в начало списка
+            await InvokeAsync(StateHasChanged);
+        }
     }
-
+    
+   
     private async Task ScrollToBottomAsync()
     {
         await Task.Delay(100);
         await JS.InvokeVoidAsync("scrollToBottom", postListContainer);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
     }
 
 }
@@ -142,12 +254,10 @@ else
                                         @if (post.IsLiked)
                                         {
                                             <i class="fas fa-heart" style="color: red;"></i>
-                                            <!-- Красное сердце -->
                                         }
                                         else
                                         {
                                             <i class="far fa-heart" style="color: grey;"></i>
-                                            <!-- Серое сердце -->
                                         }
                                     </button>
                                 </div>
@@ -158,7 +268,7 @@ else
                     </div>
                     <div class="comment-block">
                         <CommentPost PostId="@post.Id"/>
-                        <CommentList PostId="@post.Id"/>
+                        <CommentList PostId="@post.Id" @key="post.Id"/>
                     </div>
 
                 </div>

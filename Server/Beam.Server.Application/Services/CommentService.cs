@@ -1,8 +1,10 @@
-﻿using Beam.Application.Dto;
+﻿using System.ComponentModel.DataAnnotations;
 using Beam.Application.Services.Interfaces;
+using Beam.Application.Validators;
 using Beam.Core.Exceptions;
 using Beam.Infrastructure;
 using Beam.Infrastructure.Entities;
+using Beam.Shared.Dto;
 using Microsoft.EntityFrameworkCore;
 
 namespace Beam.Application.Services;
@@ -10,10 +12,12 @@ namespace Beam.Application.Services;
 public class CommentService : ICommentService
 {
     private readonly BeamDbContext _dbContext;
+    private readonly ICommentNotificationService _сommentNotificationService;
 
-    public CommentService(BeamDbContext dbContext)
+    public CommentService(BeamDbContext dbContext,ICommentNotificationService сommentNotificationService)
     {
         _dbContext = dbContext;
+        _сommentNotificationService = сommentNotificationService;
     }
 
     public async Task<List<CommentDto>> GetAllAsync()
@@ -29,10 +33,32 @@ public class CommentService : ICommentService
         }).ToList();
     }
    
-
-    public async Task<List<CommentDto>> GetCommentsByPostIdAsync(Guid postId)
+    public async Task<CommentDto> GetByIdAsync(Guid id)
     {
-        return await _dbContext.Comments
+        var comment = await _dbContext.Comments
+            .Where(c => c.Id == id)
+            .Select(c => new CommentDto
+            {
+                Id = c.Id,
+                PostId = c.PostId,
+                Author = c.Author,
+                Content = c.Content,
+                CreationDate = c.CreationDate,
+                LikesCount = c.CommentLikes.Count, // Подсчёт лайков
+            })
+            .FirstOrDefaultAsync();
+
+        if (comment == null)
+        {
+            throw new NotFoundException("Comment not found");
+        }
+
+        return comment;
+    }
+
+    public async Task<List<CommentDto>> GetCommentsByPostIdAsync(Guid postId, Guid? userId = null)
+    {
+        var commentsQuery = _dbContext.Comments
             .Where(c => c.PostId == postId)
             .Select(c => new CommentDto
             {
@@ -40,14 +66,25 @@ public class CommentService : ICommentService
                 PostId = c.PostId,
                 Author = c.Author,
                 Content = c.Content,
-                CreationDate = c.CreationDate
-            })
-            .ToListAsync();
+                CreationDate = c.CreationDate,
+                LikesCount = c.CommentLikes.Count(), // Подсчёт лайков
+                IsLiked = userId.HasValue && c.CommentLikes.Any(cl => cl.UserId == userId.Value) // Проверка лайка
+            });
+
+        return await commentsQuery.ToListAsync();
     }
+
+
     
 
     public async Task<Guid> CreateAsync(CommentInputDto input, Guid postId)
     {
+        var validator = new CommentInputDtoValidator();
+        var validationResult = await validator.ValidateAsync(input);
+        if (!validationResult.IsValid)
+        {
+            throw new ValidationException();
+        }
        
         var newComment = new Comment
         {
@@ -61,6 +98,18 @@ public class CommentService : ICommentService
 
         await _dbContext.Comments.AddAsync(newComment);
         await _dbContext.SaveChangesAsync();
+
+        var commentDto = new CommentDto
+        {
+            Id = newComment.Id,
+            PostId = newComment.PostId,
+            Author = newComment.Author,
+            Content = newComment.Content,
+            CreationDate = newComment.CreationDate,
+            LikesCount = newComment.CommentLikes.Count,
+
+        };
+        await _сommentNotificationService.NotifyCommentCreated(commentDto);
         
         return newComment.Id;
     }
@@ -76,6 +125,17 @@ public class CommentService : ICommentService
         comment.Content = input.Content;
         
         await _dbContext.SaveChangesAsync();
+        var updatedComment = new CommentDto
+        {
+            Id = comment.Id,
+            PostId = comment.PostId,
+            Author = comment.Author,
+            Content = comment.Content,
+            CreationDate = comment.CreationDate,
+            LikesCount = comment.CommentLikes.Count
+        };
+        await _сommentNotificationService.NotifyCommentUpdated(updatedComment);
+
 
         return comment.Id;
     }
@@ -91,4 +151,5 @@ public class CommentService : ICommentService
         _dbContext.Comments.Remove(comment);
         await _dbContext.SaveChangesAsync();
     }
+    
 }

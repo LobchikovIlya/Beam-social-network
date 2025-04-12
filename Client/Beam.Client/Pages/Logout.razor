@@ -1,19 +1,43 @@
 ﻿@page "/logout"
+@using Beam.Client.BlazorWasm.Services
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject TokenService TokenService
 
 <button @onclick="LogoutSystem" class="btn btn-link">
     <i class="fas fa-sign-out-alt"></i> Выйти
 </button>
 
 @code {
-
     private async Task LogoutSystem()
     {
-        await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
-        await JS.InvokeVoidAsync("localStorage.removeItem", "userName");
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (!string.IsNullOrEmpty(token))
+        {
+            var userId =  TokenService.GetUserIdFromToken(token);
 
-        NavigationManager.NavigateTo("/login");
+            if (!string.IsNullOrEmpty(userId))
+            {
+                try
+                {
+                    var response = await Http.PostAsJsonAsync("api/auth/logout", Guid.Parse(userId));
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
+                        await JS.InvokeVoidAsync("localStorage.removeItem", "userId");
+                        await JS.InvokeVoidAsync("localStorage.removeItem", "userName");
+                    }
+                    NavigationManager.NavigateTo("/login");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка при выходе: {ex.Message}");
+                }
+            }
+        }
+        
+       
     }
-
 }

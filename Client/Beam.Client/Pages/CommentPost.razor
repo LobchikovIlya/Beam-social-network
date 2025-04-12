@@ -10,6 +10,15 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILocalStorageService LocalStorage
 @using Beam.Client.BlazorWasm.Services
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.EntityFrameworkCore.Metadata.Internal
+@using Microsoft.AspNetCore.SignalR
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
+
+
+
+
 
 
 <EditForm Model="commentInputDto" OnValidSubmit="HandleValidSubmit">
@@ -28,8 +37,7 @@
     [Parameter] public Guid PostId { get; set; }
     private CommentInputDto commentInputDto = new CommentInputDto();
     private bool isAuthenticated = false;
-
-
+    
     private async Task HandleValidSubmit()
     {
         var tokenJson = await LocalStorage.GetItemAsync<string>("authToken");
@@ -44,7 +52,10 @@
             {
                 var tokenService = new TokenService();
                 var author = tokenService.GetUserNameFromToken(tokenJson);
+               @* var userId = tokenService.GetUserIdFromToken(tokenJson);*@ // Извлекаем userId
+
                 commentInputDto.Author = author;
+               @* commentInputDto.UserId = Guid.Parse(userId);*@ // Устанавливаем userId в DTO
             }
 
             var response = await Http.PostAsJsonAsync($"/api/comment/{PostId}", commentInputDto);
@@ -59,5 +70,4 @@
             // Если токена нет, считаем пользователя неавторизованным
         }
     }
-
 }

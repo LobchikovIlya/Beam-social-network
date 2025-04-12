@@ -1,4 +1,4 @@
-﻿@using Beam.Application.Dto
+﻿
 @using Beam.UI.Pages
 @inherits LayoutComponentBase
 
@@ -22,10 +22,11 @@
             <main class="main-content flex-grow-1 " style="max-height: calc(100vh - 56px); background: url('./images/image-phon.jpg') no-repeat top/cover ;">
                 @Body
             </main>
-           @* <footer>
-                <CreatePost/>
-            </footer>*@
         </div>
+        <aside class="sidebar  p-3" style="max-width: 250px; flex-shrink: 0;background-color: #1a1e29">
+            <UsersList/>
+        </aside>
+     
     </div>
        
 </div>

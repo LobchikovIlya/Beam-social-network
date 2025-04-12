@@ -3,7 +3,10 @@ using Beam.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Beam.Shared.Dto;
 
 [Authorize(Roles = "User")]
 [ApiController]
@@ -11,34 +14,117 @@ using System.Threading.Tasks;
 public class CommentLikesController : ControllerBase
 {
     private readonly ICommentLikeService _commentLikeService;
+    private readonly ICommentService _commentService;
+    private readonly ILogger<CommentLikesController> _logger;
 
-    public CommentLikesController(ICommentLikeService commentLikeService)
+    public CommentLikesController(ICommentLikeService commentLikeService, 
+                                  ICommentService commentService,
+                                  ILogger<CommentLikesController> logger)
     {
         _commentLikeService = commentLikeService;
+        _commentService = commentService;
+        _logger = logger;
+    }
+    [HttpGet("count")]
+    public async Task<IActionResult> GetCommentLikes(Guid commentId)
+    {
+        var userId = GetUserId(); 
+        var likesCount = await _commentLikeService.GetLikeCountAsync(commentId);
+        var isLiked = await _commentLikeService.IsCommentLikedAsync(commentId, userId);
+    
+        return Ok(new { LikesCount = likesCount, IsLiked = isLiked });
+    }
+
+    private Guid GetUserId()
+    {
+        var userIdFromToken = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdFromToken) || !Guid.TryParse(userIdFromToken, out var userId))
+        {
+            _logger.LogWarning("Попытка доступа без аутентификации.");
+            throw new UnauthorizedAccessException("Пользователь не аутентифицирован.");
+        }
+        return userId;
     }
 
     [HttpPost]
+    public async Task<IActionResult> ToggleLike(Guid commentId)
+    {
+        try
+        {
+            var userId = GetUserId();
+
+            await _commentLikeService.ToggleLikeAsync(commentId);
+            var likesCount = await _commentLikeService.GetLikeCountAsync(commentId);
+            var isLiked = await _commentLikeService.IsCommentLikedAsync(commentId,userId); 
+
+            var comment = await _commentService.GetByIdAsync(commentId);
+
+            var commentDto = new CommentDto
+            {
+                Id = comment.Id,
+                Author = comment.Author,
+                Content = comment.Content,
+                PostId = comment.PostId,
+                CreationDate = comment.CreationDate,
+                LikesCount = likesCount,
+                IsLiked = isLiked
+            };
+
+            return Ok(commentDto);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Ошибка авторизации");
+            return Unauthorized();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка в ToggleLike");
+            return BadRequest(new { ErrorMessage = "Произошла ошибка при обработке запроса." });
+        }
+    }
+
+    [HttpGet("all")]
+    public async Task<IActionResult> GetLikes( [FromQuery] CommentLikeFilter filter)
+    {
+        try
+        {
+            filter.UserId = GetUserId();
+            var likes = await _commentLikeService.GetAllAsync(filter);
+            return Ok(likes);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Ошибка авторизации");
+            return Unauthorized();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка в GetLikes");
+            return BadRequest(new { ErrorMessage = "Произошла ошибка при обработке запроса." });
+        }
+    }
     
-    public async Task<IActionResult> CreateLike([FromRoute]Guid commentId)
+    [HttpGet("status")]
+    public async Task<IActionResult> CheckLikeStatus(Guid commentId)
     {
-        await _commentLikeService.CreateAsync(commentId);
-
-        return Ok();
+        try
+        {
+            var userId = GetUserId();
+            var isLiked = await _commentLikeService.IsCommentLikedAsync(commentId,userId);
+            return Ok(isLiked);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Ошибка авторизации");
+            return Unauthorized();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка в CheckLikeStatus");
+            return BadRequest(new { ErrorMessage = "Произошла ошибка при обработке запроса." });
+        }
     }
+   
 
-    [HttpDelete]
-    public async Task<IActionResult> DeleteLike([FromRoute]Guid commentId)
-    {
-        await _commentLikeService.DeleteByIdAsync(commentId);
-        
-        return NoContent();
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> GetLikes([FromRoute] Guid commentId, [FromQuery] CommentLikeFilter filter)
-    {
-        var likes = await _commentLikeService.GetAllAsync(filter);
-        
-        return Ok(likes);
-    }
 }

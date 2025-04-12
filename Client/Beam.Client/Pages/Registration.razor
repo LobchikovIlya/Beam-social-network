@@ -6,22 +6,22 @@
 <h3>Регистрация</h3>
 
 <EditForm Model="registerModel" OnValidSubmit="HandleRegistration">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
+    <DataAnnotationsValidator/>
+    <ValidationSummary/>
 
     <div class="form-group">
         <label for="tag">Тег:</label>
-        <InputText id="tag" @bind-Value="registerModel.Tag" class="form-control" />
+        <InputText id="tag" @bind-Value="registerModel.Tag" class="form-control"/>
     </div>
 
     <div class="form-group">
         <label for="name">Имя:</label>
-        <InputText id="name" @bind-Value="registerModel.Name" class="form-control" />
+        <InputText id="name" @bind-Value="registerModel.Name" class="form-control"/>
     </div>
 
     <div class="form-group">
         <label for="password">Пароль:</label>
-        <InputText id="password" @bind-Value="registerModel.Password" type="password" class="form-control" />
+        <InputText id="password" @bind-Value="registerModel.Password" type="password" class="form-control"/>
     </div>
 
     <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
@@ -29,32 +29,33 @@
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-<p class="text-danger">@errorMessage</p>
+    <p class="text-danger">@errorMessage</p>
 }
 
 @code {
-private RegisterDto registerModel = new RegisterDto();
-private string errorMessage;
+    private RegisterDto registerModel = new RegisterDto();
+    private string errorMessage;
 
-private async Task HandleRegistration()
-{
-try
-{
-var response = await Http.PostAsJsonAsync("/api/auth/register", registerModel);
+    private async Task HandleRegistration()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/auth/register", registerModel);
 
-if (response.IsSuccessStatusCode)
-{
-NavigationManager.NavigateTo("/login");
-}
-else
-{
-var error = await response.Content.ReadAsStringAsync();
-errorMessage = "Ошибка: " + error;
-}
-}
-catch (Exception ex)
-{
-errorMessage = "Произошла ошибка: " + ex.Message;
-}
-}
+            if (response.IsSuccessStatusCode)
+            {
+                NavigationManager.NavigateTo("/login");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = "Ошибка: " + error;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Произошла ошибка: " + ex.Message;
+        }
+    }
+
 }

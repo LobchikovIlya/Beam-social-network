@@ -5,20 +5,21 @@
 
 @if (!string.IsNullOrEmpty(userName))
 {
-<h4>Привет, @userName!</h4>
+    <h4>Привет, @userName!</h4>
 }
 else
 {
-<h4>Пожалуйста, войдите в систему.</h4>
+    <h4>Пожалуйста, войдите в систему.</h4>
 }
 
 @code {
-private string userName;
+    private string userName;
 
-protected override async Task OnInitializedAsync()
-{
+    protected override async Task OnInitializedAsync()
+    {
 // Получаем имя пользователя из localStorage
-userName = await JS.InvokeAsync<string>("localStorage.getItem", "userName");
-}
+        userName = await JS.InvokeAsync<string>("localStorage.getItem", "userName");
+    }
+
 }
 

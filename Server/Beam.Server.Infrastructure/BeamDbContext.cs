@@ -18,40 +18,12 @@ public class BeamDbContext : DbContext
     public BeamDbContext(DbContextOptions<BeamDbContext> options) : base(options)
     {
     }
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.Entity<Role>().HasData
-        (
-            new Role { Id = 1, Name = "Admin" },
-            new Role { Id = 2, Name = "User" }
-        );
-
-        modelBuilder.Entity<PostLike>().HasKey(pl => new { pl.UserId, pl.PostId });
-        modelBuilder.Entity<CommentLike>()
-            .HasKey(cl => new { cl.UserId, cl.CommentId });
-        modelBuilder.Entity<UsersToRole>()
-            .HasKey(ur => new { ur.UserId, ur.RoleId });
-
-        modelBuilder.Entity<UsersToRole>()
-            .HasOne(ur => ur.User)
-            .WithMany(u => u.UsersToRoles)
-            .HasForeignKey(ur => ur.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-
-        modelBuilder.Entity<UsersToRole>()
-            .HasOne(ur => ur.Role)
-            .WithMany(r => r.UsersToRoles)
-            .HasForeignKey(ur => ur.RoleId)
-            .OnDelete(DeleteBehavior.Cascade);
+    
         
-
-        modelBuilder.Entity<Post>()
-            .HasMany(p => p.Comments) 
-            .WithOne(c => c.Post) 
-            .HasForeignKey(c => c.PostId) 
-            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(BeamDbContext).Assembly);
     }
+
 }

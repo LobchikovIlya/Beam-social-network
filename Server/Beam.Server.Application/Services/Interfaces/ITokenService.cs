@@ -1,4 +1,5 @@
-﻿using Beam.Application.Dto;
+﻿
+using Beam.Shared.Dto;
 
 namespace Beam.Application.Services.Interfaces;
 

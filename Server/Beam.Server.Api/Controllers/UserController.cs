@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Beam.Application.Dto;
+﻿using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Authorization;
 using Beam.Application.Services.Interfaces;
 using Beam.Core.Exceptions;
+using Beam.Shared.Dto;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Beam.Api.Controllers;
@@ -13,10 +15,12 @@ namespace Beam.Api.Controllers;
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
+    private  readonly IUserActivityService _userActivityService;
 
-    public UserController(IUserService userService)
+    public UserController(IUserService userService, IUserActivityService userActivityService)
     {
         _userService = userService;
+        _userActivityService = userActivityService;
     }
 
     [HttpGet]
@@ -34,7 +38,6 @@ public class UserController : ControllerBase
         try
         {
             var user = await _userService.GetByIdAsync(id);
-            
             return Ok(user);
         }
         catch (NotFoundException ex)
@@ -56,6 +59,7 @@ public class UserController : ControllerBase
             var createUser = await _userService.GetByIdAsync(user.Id);
             return Ok(createUser);
         }
+      
         catch (BadRequestException ex)
         {
             return BadRequest(ex.Message);
@@ -104,5 +108,26 @@ public class UserController : ControllerBase
         {
             return StatusCode(500, "Произошла непредвиденная ошибка.");
         }
+    }
+    
+    [HttpPost("update-activity")]
+    public async Task<IActionResult> UpdateActivity()
+    {
+        var token = HttpContext.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var jsonToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
+        var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "id");
+        if (userIdClaim == null)
+        {
+            return BadRequest("Не найден claim с userId в токене");
+        }
+        
+        var userId = Guid.Parse(userIdClaim.Value);
+        UserActivityDto userActivityDto = new UserActivityDto();
+        userActivityDto.UserId = userId;
+        userActivityDto.LastActivityTime = DateTimeOffset.UtcNow;
+        
+        await _userActivityService.UpdateActivityAsync(userActivityDto.UserId,userActivityDto.LastActivityTime);
+        return Ok();
     }
 }

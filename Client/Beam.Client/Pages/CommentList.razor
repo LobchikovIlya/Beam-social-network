@@ -1,9 +1,16 @@
-﻿@page "/CpommentList"
+﻿@page "/CommentList"
 @using System.Net.Http.Headers
-@using Beam.UI.Dtos
+@using System.Text
+@using Beam.Application.Services.Interfaces
+@using Beam.Infrastructure.Entities
+@using Beam.Infrastructure.Migrations
+@using Beam.Shared.Dto
 @using Blazored.LocalStorage
+@using CommentDto = Beam.UI.Dtos.CommentDto
 @inject ILocalStorageService LocalStorage
 @inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 
 
@@ -11,12 +18,48 @@
     [Parameter] public Guid PostId { get; set; }
     private List<CommentDto> comments = new List<CommentDto>();
     private bool isLoading = true;
+    private ElementReference commentListContainer;
+    private HubConnection? _hubConnection;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
+        await InitializeSignalRAsync();
         await LoadCommentsAsync(PostId);
+        await LoadAllCommentLikesAsync();
+
     }
 
+    private async Task ReconnectSignalRAsync()
+    {
+        if (_hubConnection != null)
+        {
+            await _hubConnection.StopAsync();
+            await _hubConnection.DisposeAsync();
+        }
+
+        await InitializeSignalRAsync();
+    }
+
+
+    private async Task InitializeSignalRAsync()
+    {
+        var tokenJson = await LocalStorage.GetItemAsync<string>("authToken");
+
+        if (!string.IsNullOrEmpty(tokenJson))
+        {
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl("http://localhost:5049/chatHub", options => { options.AccessTokenProvider = () => Task.FromResult(tokenJson); })
+                .Build();
+
+            _hubConnection.On<CommentDto>("ReceiveCommentCreated", HandleNewComment);
+            _hubConnection.On<CommentDto>("ReceiveCommentLikedStatus", HandleCommentLikeStatus);
+            _hubConnection.On<CommentDto>("ReceiveCommentUnLiked", HandleCommentUnLikeStatus);
+            _hubConnection.On<CommentDto>("ReceiveCommentUpdated", HandleCommentUpdate);
+            await _hubConnection.StartAsync();
+            await _hubConnection.InvokeAsync("JoinGroup", PostId.ToString());
+        }
+    }
+    
     private async Task LoadCommentsAsync(Guid postId)
     {
         try
@@ -25,17 +68,22 @@
             var token = await LocalStorage.GetItemAsync<string>("authToken");
             if (!string.IsNullOrEmpty(token))
             {
-                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                comments = await Http.GetFromJsonAsync<List<CommentDto>>($"http://localhost:5049/api/comment/{postId}");
-            }
-            else
-            {
-                Console.WriteLine("Токен не найден.");
+                var response = await Http.GetAsync($"http://localhost:5049/api/comment/{postId}");
+                if (response.IsSuccessStatusCode)
+                {
+                    var loadedComments = await response.Content.ReadFromJsonAsync<List<CommentDto>>() ?? new();
+                    comments = loadedComments.OrderByDescending(c => c.CreationDate).ToList();
+                    StateHasChanged();
+                }
+                else
+                {
+                    Console.WriteLine("Не удалось загрузить комментарии.");
+                }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Ошибка при загрузке комментариев: {ex.Message}");
+            Console.WriteLine($"Ошибка при загрузке комментов: {ex.Message}");
         }
         finally
         {
@@ -43,9 +91,177 @@
         }
     }
 
-    public async Task RefreshComments()
+
+
+    private readonly object _lock = new();
+
+    private void UpdateCommentLikeCount(Guid commentId, int likeCount)
     {
-        await LoadCommentsAsync(PostId);
+        lock (_lock)
+        {
+            var comment = comments.FirstOrDefault(c => c.Id == commentId);
+            if (comment != null)
+            {
+                comment.LikesCount = likeCount;
+                StateHasChanged();
+            }
+        }
+    }
+
+
+   
+    private async Task HandleNewComment(CommentDto newComment)
+    {
+        if (newComment.PostId == PostId && comments.All(c => c.Id != newComment.Id))
+        {
+            comments.Insert(0, newComment);
+            await InvokeAsync(StateHasChanged); // Принудительно вызываем обновление UI
+        }
+    }
+
+    private void HandleCommentLikeStatus(CommentDto comment)
+    {
+        var existingComment = comments.FirstOrDefault(c => c.Id == comment.Id);
+        if (existingComment != null)
+        {
+            existingComment.LikesCount = comment.LikesCount;
+            InvokeAsync(StateHasChanged); // Обновить UI
+        }
+    }
+
+    private void HandleCommentUnLikeStatus(CommentDto comment)
+    {
+        var existingComment = comments.FirstOrDefault(c => c.Id == comment.Id);
+        if (existingComment != null)
+        {
+            existingComment.LikesCount = comment.LikesCount;
+            if (existingComment.Id == comment.Id)
+            {
+                existingComment.IsLiked = comment.IsLiked;
+            }
+            InvokeAsync(StateHasChanged); // Обновить UI
+        }
+    }
+
+    private void HandleCommentUpdate(CommentDto comment)
+    {
+        var existingComment = comments.FirstOrDefault(c => c.Id == comment.Id);
+        if (existingComment != null)
+        {
+            existingComment.Content = comment.Content;
+            existingComment.LikesCount = comment.LikesCount;
+            InvokeAsync(StateHasChanged); // Обновить UI
+        }
+    }
+
+    public async Task DisposeAsync()
+    {
+        if (_hubConnection != null)
+        {
+            // Удаляем из группы при отключении компонента
+            await _hubConnection.InvokeAsync("LeaveGroup", PostId.ToString());
+            await _hubConnection.DisposeAsync();
+        }
+    }
+    private async Task LoadAllCommentLikesAsync()
+    {
+        if (comments == null || comments.Count == 0)
+            return;
+
+        var tasks = comments.Select(c => LoadCommentLikesAsync(c.Id));
+        await Task.WhenAll(tasks);
+        StateHasChanged();
+    }
+
+
+    private async Task LoadCommentLikesAsync(Guid commentId)
+    {
+        Console.WriteLine($"Загружаю лайки для комментария с ID: {commentId}");
+
+        try
+        {
+            // Запрос на сервер для получения лайков для конкретного комментария
+            var response = await Http.GetAsync($"http://localhost:5049/api/comment/{commentId}/likes/count");
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Чтение лайков из ответа
+                var result = await response.Content.ReadFromJsonAsync<List<CommentLike>>() ?? new List<CommentLike>();
+
+                // Обновляем количество лайков
+                var comment = comments.FirstOrDefault(c => c.Id == commentId);
+                if (comment != null)
+                {
+                    comment.LikesCount = result.Count;
+                }
+
+                // Проверяем, лайкнул ли текущий пользователь этот комментарий
+                var userId = await LocalStorage.GetItemAsync<string>("userId");
+                var likedComment = result.FirstOrDefault(like => like.UserId.ToString() == userId);
+                if (comment != null)
+                {
+                    comment.IsLiked = likedComment != null;
+                }
+
+                Console.WriteLine($"Количество лайков: {comment?.LikesCount}, Лайкнул ли пользователь: {comment?.IsLiked}");
+                StateHasChanged(); // Обновление UI
+            }
+            else
+            {
+                Console.WriteLine($"Ошибка при загрузке лайков: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка: {ex.Message}");
+        }
+    }
+
+
+    private async Task ToggleLike(Guid commentId)
+    {
+        try
+        {
+            var token = await LocalStorage.GetItemAsync<string>("authToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Console.WriteLine("Token is missing.");
+                return;
+            }
+
+            var response = await Http.PostAsync($"http://localhost:5049/api/comment/{commentId}/likes", new StringContent("", Encoding.UTF8, "application/json"));
+
+
+            if (response.IsSuccessStatusCode)
+            {
+                var updatedComment = await response.Content.ReadFromJsonAsync<CommentDto>();
+
+                if (updatedComment != null && updatedComment.Id == commentId)
+                {
+                    var existingComment = comments.FirstOrDefault(c => c.Id == updatedComment.Id);
+                    if (existingComment != null)
+                    {
+                        existingComment.IsLiked = updatedComment.IsLiked;
+                        existingComment.LikesCount = updatedComment.LikesCount;
+                        InvokeAsync(StateHasChanged);
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Ошибка: {response.StatusCode}, {await response.Content.ReadAsStringAsync()}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при отправке запроса: {ex.Message}");
+        }
+    }
+
+    private async Task ScrollToBottomAsync()
+    {
+        await Task.Delay(200);
+        await JS.InvokeVoidAsync("scrollToBottom", commentListContainer);
     }
 
 }
@@ -60,21 +276,37 @@ else if (comments == null || !comments.Any())
 }
 else
 {
-    @foreach (var comment in comments)
-    {
-        bool showComments = false;
+    <div class="comment-list" @ref="commentListContainer">
+        @foreach (var comment in comments)
+        {
+            bool showComments = false;
 
-        <div class="post-item  p-3">
-            <div class="comment-content">
-                <p class="text-post">@comment.Content</p>
-                <div class="post-footer">
-                    <p>@comment.Author</p>
-                    <small class="creation-date p-3"> @comment.CreationDate.ToString("g")</small>
-                    <hr/>
+            <div class="post-item  p-0">
+                <div class="comment-content">
+                    <p class="text-post">@comment.Content</p>
+                    <div class="comment-footer">
+                        <div class="user-like">
+                            <p>@comment.Author</p>
+                            <div class="like-section">
+                                <p class="like-count">@comment.LikesCount</p>
+                                <button @onclick="() => ToggleLike(comment.Id)" class="like-button">
+                                    @if (comment.IsLiked)
+                                    {
+                                        <i class="fas fa-heart" style="color: red;"></i>
+                                        <!-- Красное сердце -->
+                                    }
+                                    else
+                                    {
+                                        <i class="far fa-heart" style="color: grey;"></i>
+                                        <!-- Серое сердце -->
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                        <small class="creation-date "> @comment.CreationDate.ToString("g")</small>
+                    </div>
                 </div>
             </div>
-
-
-        </div>
-    }
+        }
+    </div>
 }

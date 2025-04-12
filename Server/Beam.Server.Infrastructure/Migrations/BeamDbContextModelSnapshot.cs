@@ -62,6 +62,8 @@ namespace Beam.Infrastructure.Migrations
 
                     b.HasKey("UserId", "CommentId");
 
+                    b.HasIndex("CommentId");
+
                     b.ToTable("CommentLikes");
                 });
 
@@ -87,6 +89,8 @@ namespace Beam.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("Posts");
                 });
 
@@ -102,6 +106,8 @@ namespace Beam.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("UserId", "PostId");
+
+                    b.HasIndex("PostId");
 
                     b.ToTable("PostLikes");
                 });
@@ -142,6 +148,12 @@ namespace Beam.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsOnline")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("LastActivity")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
@@ -187,6 +199,55 @@ namespace Beam.Infrastructure.Migrations
                     b.Navigation("Post");
                 });
 
+            modelBuilder.Entity("Beam.Infrastructure.Entities.CommentLike", b =>
+                {
+                    b.HasOne("Beam.Infrastructure.Entities.Comment", "Comment")
+                        .WithMany("CommentLikes")
+                        .HasForeignKey("CommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Beam.Infrastructure.Entities.User", "User")
+                        .WithMany("CommentLikes")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Comment");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Beam.Infrastructure.Entities.Post", b =>
+                {
+                    b.HasOne("Beam.Infrastructure.Entities.User", "User")
+                        .WithMany("Posts")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Beam.Infrastructure.Entities.PostLike", b =>
+                {
+                    b.HasOne("Beam.Infrastructure.Entities.Post", "Post")
+                        .WithMany("Likes")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Beam.Infrastructure.Entities.User", "User")
+                        .WithMany("PostLikes")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Beam.Infrastructure.Entities.UsersToRole", b =>
                 {
                     b.HasOne("Beam.Infrastructure.Entities.Role", "Role")
@@ -206,9 +267,16 @@ namespace Beam.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Beam.Infrastructure.Entities.Comment", b =>
+                {
+                    b.Navigation("CommentLikes");
+                });
+
             modelBuilder.Entity("Beam.Infrastructure.Entities.Post", b =>
                 {
                     b.Navigation("Comments");
+
+                    b.Navigation("Likes");
                 });
 
             modelBuilder.Entity("Beam.Infrastructure.Entities.Role", b =>
@@ -218,6 +286,12 @@ namespace Beam.Infrastructure.Migrations
 
             modelBuilder.Entity("Beam.Infrastructure.Entities.User", b =>
                 {
+                    b.Navigation("CommentLikes");
+
+                    b.Navigation("PostLikes");
+
+                    b.Navigation("Posts");
+
                     b.Navigation("UsersToRoles");
                 });
 #pragma warning restore 612, 618

@@ -2,77 +2,75 @@
 using Beam.Application.Filters;
 using Beam.Application.Services.Interfaces;
 using Beam.Core.Exceptions;
+using Beam.Infrastructure.Hubs;
+using Beam.Shared.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
-namespace Beam.Api.Controllers;
-
-[Authorize(Roles = "User")]
-[ApiController]
-[Route("api/post/{postId}/likes")]
-public class PostLikesController : ControllerBase
+namespace Beam.Api.Controllers
 {
-    private readonly IPostLikeService _postLikeService;
-
-    public PostLikesController(IPostLikeService postLikeService)
+    [Authorize(Roles = "User")]
+    [ApiController]
+    [Route("api/post/{postId}/likes")]
+    public class PostLikesController : ControllerBase
     {
-        _postLikeService = postLikeService;
-    }
+        private readonly IPostLikeService _postLikeService;
+        private readonly IPostLikeNotificationService _postLikeNotificationService;
+        private readonly IPostService _postService;
+       
 
-    [HttpPost]
-    public async Task<IActionResult> CreateLike([FromRoute] Guid postId)
-    {
-        try
+        public PostLikesController(IPostLikeService postLikeService, IPostLikeNotificationService postLikeNotificationService, IPostService postService)
         {
-            var userIdFromToken = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userIdFromToken == null)
-            {
-                throw new BadRequestException("User ID is missing from the token.");
-            }
-
-            var userId = Guid.Parse(userIdFromToken);
-            await _postLikeService.CreateAsync(postId, userId);
-
-            return Ok();
+            _postLikeService = postLikeService;
+            _postLikeNotificationService = postLikeNotificationService;
+            _postService = postService;
+            
         }
-        catch (BadRequestException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (FormatException)
-        {
-            throw new BadRequestException("Invalid user ID format.");
-        }
-        catch (InternalServerErrorException ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, "Internal server error: " + ex.Message);
-        }
-    }
-
-    [HttpDelete]
-    public async Task<IActionResult> DeleteLike([FromRoute] Guid postId)
-    {
-        var userIdFromToken = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userIdFromToken == null)
-        {
-            throw new BadRequestException("User ID is missing from the token.");
-        }
-
-        var userId = Guid.Parse(userIdFromToken);
         
-        await _postLikeService.DeleteAsync(postId, userId);
+        [HttpPost]
+        public async Task<IActionResult> ToggleLike(Guid postId)
+        {
+            var userId = _postLikeService.GetCurrentUserId();  // Получаем Id текущего пользователя
 
-        return NoContent();
-    }
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized();  // Если нет пользователя, возвращаем ошибку авторизации
+            }
 
-    [HttpGet]
-    public async Task<IActionResult> GetLikes([FromQuery] PostLikeFilter filter)
-    {
-        try
+            try
+            {
+                await _postLikeService.ToggleLikeAsync(postId, userId);
+
+                // Пересчитываем лайки после обновления
+                var likesCount = await _postLikeService.GetLikeCountAsync(postId);
+                var isLiked = await _postLikeService.IsPostLikedAsync(postId); // Проверяем текущего пользователя
+
+                var post = await _postService.GetByIdAsync(postId);  // Получаем обновленный пост
+
+                var postDto = new PostDto
+                {
+                    Id = post.Id,
+                    UserId = post.UserId,
+                    Content = post.Content,
+                    UserName = post.UserName,
+                    CreationDate = post.CreationDate,
+                    LikesCount = likesCount,  // ✅ Корректно пересчитываем количество лайков
+                    IsLiked = isLiked // ✅ Проверяем, лайкал ли текущий пользователь
+                };
+
+                return Ok(postDto);  // Возвращаем обновленный PostDto
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { ErrorMessage = ex.Message });
+            }
+        }
+        
+        
+        // Получение всех лайков с фильтром
+        [HttpGet]
+        public async Task<IActionResult> GetLikes([FromQuery] PostLikeFilter filter)
         {
             var userIdFromToken = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userIdFromToken == null)
@@ -80,28 +78,44 @@ public class PostLikesController : ControllerBase
                 throw new BadRequestException("User ID is missing from the token.");
             }
 
-            var userId = Guid.Parse(userIdFromToken);
-            filter.UserId = userId;
+            try
+            {
+                var userId = Guid.Parse(userIdFromToken);
+                filter.UserId = userId;
 
-            var likes = await _postLikeService.GetAllAsync(filter);
+                var likes = await _postLikeService.GetAllAsync(filter);
 
-            return Ok(likes);
+                return Ok(likes);
+            }
+            catch (FormatException)
+            {
+                throw new BadRequestException("Invalid user ID format.");
+            }
         }
-        catch (BadRequestException ex)
+
+        // Проверка, поставил ли пользователь лайк на пост
+        [HttpGet("/status")]
+        public async Task<IActionResult> CheckLikeStatus([FromRoute] Guid postId)
         {
-            return BadRequest(ex.Message);
+            var userIdFromToken = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userIdFromToken == null)
+            {
+                throw new BadRequestException("User ID is missing from the token.");
+            }
+
+            try
+            {
+                var userId = Guid.Parse(userIdFromToken);
+                var isLiked = await _postLikeService.IsPostLikedAsync(postId);
+
+                return Ok(isLiked);
+            }
+            catch (FormatException)
+            {
+                throw new BadRequestException("Invalid user ID format.");
+            }
         }
-        catch (FormatException)
-        {
-            throw new BadRequestException("Invalid user ID format.");
-        }
-        catch (InternalServerErrorException ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, "Internal server error: " + ex.Message);
-        }
+        
+      
     }
 }

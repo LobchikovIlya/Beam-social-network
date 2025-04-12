@@ -1,4 +1,4 @@
-﻿namespace Beam.Application.Dto;
+﻿namespace Beam.Shared.Dto;
 
 public class PostInputDto
 {

@@ -25,7 +25,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider
         if (!string.IsNullOrWhiteSpace(token))
         {
             // Установка заголовка авторизации
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            //_httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
             var claims = JwtParser.ParseClaimsFromJwt(token); // Парсим токен для извлечения клеймов
             identity = new ClaimsIdentity(claims, "jwtAuthType");
         }
@@ -40,7 +40,7 @@ public class JwtAuthenticationStateProvider : AuthenticationStateProvider
         var user = new ClaimsPrincipal(identity);
 
         // Установка заголовка авторизации
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+       // _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         
         NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(user)));
     }
