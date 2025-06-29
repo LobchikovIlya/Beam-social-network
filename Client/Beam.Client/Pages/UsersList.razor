@@ -4,12 +4,15 @@
 @using Blazored.LocalStorage
 @using System.Net.Http.Headers
 @using System.Security.Claims
+@using Beam.UI.Configuration
 @using Microsoft.AspNetCore.Authorization
 @inject HttpClient Http
 @inject ILocalStorageService LocalStorage
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.EntityFrameworkCore.Metadata.Internal
 @inject NavigationManager Navigation
+@inject HubConnection _HubConnection
+@inject AppSettings settings
 
 <h4>Пользователи</h4>
 
@@ -42,7 +45,6 @@ else
     private List<UserDto> users = new();
     private bool isLoading = true;
     private Guid userId = Guid.Empty;
-    private HubConnection? _hubConnection;
     private Dictionary<Guid, bool> OnlineUsers = new();
   
 
@@ -67,20 +69,14 @@ else
             return; 
         }
         Console.WriteLine($"Token from LocalStorage: {tokenJson}");
-        _hubConnection = new HubConnectionBuilder()
-                .WithUrl("http://localhost:5049/chatHub", options =>
-                {
-                    options.AccessTokenProvider = () => Task.FromResult(tokenJson);
-                })
-                .Build();
-
-            _hubConnection.On<Guid, bool>("UsersStatusChanged", (userId, isOnline) =>
+        
+            _HubConnection.On<Guid, bool>("UsersStatusChanged", (userId, isOnline) =>
             {
                 OnlineUsers[userId] = isOnline;
 
                 StateHasChanged();  // Обновление компонента
             });
-            _hubConnection.On("UserListUpdated", async () =>
+            _HubConnection.On("UserListUpdated", async () =>
             {
                 Console.WriteLine("📡 Получено событие 'UserListUpdated'. Перезагружаю список пользователей...");
                 await LoadUsersAsync();
@@ -88,7 +84,10 @@ else
 
             try
             {
-                await _hubConnection.StartAsync();
+                if (_HubConnection.State == HubConnectionState.Disconnected)
+                {
+                    await _HubConnection.StartAsync();
+                }
                 Console.WriteLine("SignalR connection started successfully.");
             }
             catch (Exception ex)
@@ -137,7 +136,7 @@ else
                     ||c.Type == "sub"
                     || c.Type == "uid")?.Value;
                 
-                var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost:5049/api/users");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.ApiBaseUrl}/api/users");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 var response = await Http.SendAsync(request);
                 if (response.IsSuccessStatusCode)

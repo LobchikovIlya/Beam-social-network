@@ -11,6 +11,7 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
+@inject HubConnection _HubConnection
 
 
 
@@ -19,7 +20,6 @@
     private List<CommentDto> comments = new List<CommentDto>();
     private bool isLoading = true;
     private ElementReference commentListContainer;
-    private HubConnection? _hubConnection;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -31,10 +31,10 @@
 
     private async Task ReconnectSignalRAsync()
     {
-        if (_hubConnection != null)
+        if (_HubConnection != null)
         {
-            await _hubConnection.StopAsync();
-            await _hubConnection.DisposeAsync();
+            await _HubConnection.StopAsync();
+            await _HubConnection.DisposeAsync();
         }
 
         await InitializeSignalRAsync();
@@ -47,16 +47,12 @@
 
         if (!string.IsNullOrEmpty(tokenJson))
         {
-            _hubConnection = new HubConnectionBuilder()
-                .WithUrl("http://localhost:5049/chatHub", options => { options.AccessTokenProvider = () => Task.FromResult(tokenJson); })
-                .Build();
-
-            _hubConnection.On<CommentDto>("ReceiveCommentCreated", HandleNewComment);
-            _hubConnection.On<CommentDto>("ReceiveCommentLikedStatus", HandleCommentLikeStatus);
-            _hubConnection.On<CommentDto>("ReceiveCommentUnLiked", HandleCommentUnLikeStatus);
-            _hubConnection.On<CommentDto>("ReceiveCommentUpdated", HandleCommentUpdate);
-            await _hubConnection.StartAsync();
-            await _hubConnection.InvokeAsync("JoinGroup", PostId.ToString());
+            _HubConnection.On<CommentDto>("ReceiveCommentCreated", HandleNewComment);
+            _HubConnection.On<CommentDto>("ReceiveCommentLikedStatus", HandleCommentLikeStatus);
+            _HubConnection.On<CommentDto>("ReceiveCommentUnLiked", HandleCommentUnLikeStatus);
+            _HubConnection.On<CommentDto>("ReceiveCommentUpdated", HandleCommentUpdate);
+            await _HubConnection.StartAsync();
+            await _HubConnection.InvokeAsync("JoinGroup", PostId.ToString());
         }
     }
     
@@ -156,11 +152,11 @@
 
     public async Task DisposeAsync()
     {
-        if (_hubConnection != null)
+        if (_HubConnection != null)
         {
             // Удаляем из группы при отключении компонента
-            await _hubConnection.InvokeAsync("LeaveGroup", PostId.ToString());
-            await _hubConnection.DisposeAsync();
+            await _HubConnection.InvokeAsync("LeaveGroup", PostId.ToString());
+            await _HubConnection.DisposeAsync();
         }
     }
     private async Task LoadAllCommentLikesAsync()

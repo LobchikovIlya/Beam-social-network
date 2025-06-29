@@ -30,4 +30,11 @@
     <ProjectReference Include="..\..\Shared\Beam.Shared.Models\Beam.Shared.Models.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="publish\web.config" />
+    <_ContentIncludedByDefault Remove="publish\wwwroot\appsettings.json" />
+    <_ContentIncludedByDefault Remove="publish\wwwroot\appsettings.Production.json" />
+    <_ContentIncludedByDefault Remove="publish\wwwroot\_framework\blazor.boot.json" />
+  </ItemGroup>
+
 </Project>

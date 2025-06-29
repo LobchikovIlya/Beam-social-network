@@ -12,13 +12,13 @@
 @using Microsoft.AspNetCore.SignalR
 @inject HttpClient Http
 @inject ILocalStorageService LocalStorage
+@inject HubConnection _HubConnection
 
 
 @code {
     private List<PostDto> posts = new();
     private bool isLoading = true;
     private ElementReference postListContainer;
-    private HubConnection? _hubConnection;
     private readonly IHubContext<ChatHub> _hubContext;
 
     protected override async Task OnInitializedAsync()
@@ -32,14 +32,10 @@
         var token = await LocalStorage.GetItemAsync<string>("authToken");
         if (string.IsNullOrEmpty(token)) return;
         Console.WriteLine($"Токен перед подключением: {token}");
-        _hubConnection = new HubConnectionBuilder()
-            .WithUrl("http://localhost:5049/chatHub", options => { options.AccessTokenProvider = () => Task.FromResult(token); })
-            .WithAutomaticReconnect()
-            .Build();
 
-        _hubConnection.On<PostDto>("ReceivePostCreated", HandleNewPostCreated);
+        _HubConnection.On<PostDto>("ReceivePostCreated", HandleNewPostCreated);
 
-        _hubConnection.On<PostDto>("ReceivePostLiked", post =>
+        _HubConnection.On<PostDto>("ReceivePostLiked", post =>
         {
             // Обновление лайков по событию из SignalR
             var existingPost = posts.FirstOrDefault(p => p.Id == post.Id);
@@ -51,7 +47,7 @@
             }
         });
 
-        _hubConnection.On<PostDto>("ReceivePostUnLiked", post =>
+        _HubConnection.On<PostDto>("ReceivePostUnLiked", post =>
         {
             // Обновление лайков по событию из SignalR
             var existingPost = posts.FirstOrDefault(p => p.Id == post.Id);
@@ -61,7 +57,7 @@
                 StateHasChanged();
             }
         });
-        _hubConnection.On<Guid, bool>("ReceivePostLikedStatus", (postId, isLiked) =>
+        _HubConnection.On<Guid, bool>("ReceivePostLikedStatus", (postId, isLiked) =>
         {
             var existingPost = posts.FirstOrDefault(p => p.Id == postId);
             if (existingPost != null)
@@ -72,13 +68,13 @@
         });
       
 
-        _hubConnection.Reconnecting += (error) =>
+        _HubConnection.Reconnecting += (error) =>
         {
             Console.WriteLine($"Переподключение: {error?.Message}");
             return Task.CompletedTask;
         };
 
-        _hubConnection.Reconnected += (connectionId) =>
+        _HubConnection.Reconnected += (connectionId) =>
         {
             Console.WriteLine($"Подключение восстановлено. ID: {connectionId}");
             return Task.CompletedTask;
@@ -87,7 +83,7 @@
         try
         {
             Console.WriteLine("Подключение к SignalR...");
-            await _hubConnection.StartAsync();
+            await _HubConnection.StartAsync();
             Console.WriteLine("SignalR подключен!");
         }
         catch (Exception ex)
@@ -219,9 +215,9 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (_hubConnection is not null)
+        if (_HubConnection is not null)
         {
-            await _hubConnection.DisposeAsync();
+            await _HubConnection.DisposeAsync();
         }
     }
 
