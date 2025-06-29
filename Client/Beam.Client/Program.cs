@@ -50,7 +50,7 @@ builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().Cre
 
 builder.Services.AddScoped(sp =>
 {
-    var navigationManager = sp.GetRequiredService<NavigationManager>();
+    var settings = sp.GetRequiredService<AppSettings>();
     var localStorage = sp.GetRequiredService<ILocalStorageService>();
     
     return new HubConnectionBuilder()
