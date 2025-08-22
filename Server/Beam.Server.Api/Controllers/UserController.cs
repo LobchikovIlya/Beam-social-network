@@ -1,21 +1,18 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
-using Microsoft.AspNetCore.Authorization;
 using Beam.Application.Services.Interfaces;
 using Beam.Core.Exceptions;
 using Beam.Shared.Dto;
-using FluentValidation;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Beam.Api.Controllers;
 
-[ApiController] 
+[ApiController]
 [Route("api/users")]
-
-
 public class UserController : ControllerBase
 {
+    private readonly IUserActivityService _userActivityService;
     private readonly IUserService _userService;
-    private  readonly IUserActivityService _userActivityService;
 
     public UserController(IUserService userService, IUserActivityService userActivityService)
     {
@@ -27,13 +24,13 @@ public class UserController : ControllerBase
     public async Task<IActionResult> GetAllAsync()
     {
         var users = await _userService.GetAllAsync();
-        
+
         return Ok(users);
     }
 
     [HttpGet]
     [Route("{id:guid}")]
-    public async Task<IActionResult> GetByIdAsync([FromRoute]Guid id)
+    public async Task<IActionResult> GetByIdAsync([FromRoute] Guid id)
     {
         try
         {
@@ -59,7 +56,7 @@ public class UserController : ControllerBase
             var createUser = await _userService.GetByIdAsync(user.Id);
             return Ok(createUser);
         }
-      
+
         catch (BadRequestException ex)
         {
             return BadRequest(ex.Message);
@@ -69,15 +66,16 @@ public class UserController : ControllerBase
             return StatusCode(500, "Произошла непредвиденная ошибка.");
         }
     }
+
     [Authorize(Roles = "User")]
     [HttpPut]
     [Route("{id:guid}")]
-    public async Task<IActionResult> UpdateAsync([FromRoute]Guid id, [FromBody] UserInputDto input)
+    public async Task<IActionResult> UpdateAsync([FromRoute] Guid id, [FromBody] UserInputDto input)
     {
         try
         {
             await _userService.UpdateAsync(id, input);
-            
+
             return NoContent();
         }
         catch (NotFoundException ex)
@@ -89,15 +87,16 @@ public class UserController : ControllerBase
             return StatusCode(500, "Произошла непредвиденная ошибка.");
         }
     }
+
     [Authorize(Roles = "User")]
     [HttpDelete]
     [Route("{id:guid}")]
-    public async Task<IActionResult> DeleteAsync([FromRoute]Guid id)
+    public async Task<IActionResult> DeleteAsync([FromRoute] Guid id)
     {
         try
         {
             await _userService.DeleteByIdAsync(id);
-            
+
             return NoContent();
         }
         catch (NotFoundException ex)
@@ -109,7 +108,7 @@ public class UserController : ControllerBase
             return StatusCode(500, "Произошла непредвиденная ошибка.");
         }
     }
-    
+
     [HttpPost("update-activity")]
     public async Task<IActionResult> UpdateActivity()
     {
@@ -117,17 +116,17 @@ public class UserController : ControllerBase
         var tokenHandler = new JwtSecurityTokenHandler();
         var jsonToken = tokenHandler.ReadToken(token) as JwtSecurityToken;
         var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "id");
-        if (userIdClaim == null)
-        {
-            return BadRequest("Не найден claim с userId в токене");
-        }
-        
+        if (userIdClaim == null) return BadRequest("Не найден claim с userId в токене");
+
         var userId = Guid.Parse(userIdClaim.Value);
-        UserActivityDto userActivityDto = new UserActivityDto();
-        userActivityDto.UserId = userId;
-        userActivityDto.LastActivityTime = DateTimeOffset.UtcNow;
-        
-        await _userActivityService.UpdateActivityAsync(userActivityDto.UserId,userActivityDto.LastActivityTime);
+        var userActivityDto = new UserActivityDto
+        {
+            UserId = userId,
+            LastActivityTime = DateTimeOffset.UtcNow
+        };
+
+
+        await _userActivityService.UpdateActivityAsync(userActivityDto.UserId, userActivityDto.LastActivityTime);
         return Ok();
     }
 }

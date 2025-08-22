@@ -1,21 +1,28 @@
 ﻿@page "/logout"
 @using Beam.Client.BlazorWasm.Services
+@using Blazored.LocalStorage
+@using Microsoft.AspNetCore.Components.Authorization
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
 @inject HttpClient Http
 @inject TokenService TokenService
+@inject AuthenticationStateProvider AuthProvider
+@inject ILocalStorageService localStorage
+@inject AuthService _AuthService
 
 <button @onclick="LogoutSystem" class="btn btn-link">
     <i class="fas fa-sign-out-alt"></i> Выйти
 </button>
 
 @code {
+
     private async Task LogoutSystem()
     {
-        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        var token = await localStorage.GetItemAsync<string>("authToken");
+        token = token?.Trim('"');
         if (!string.IsNullOrEmpty(token))
         {
-            var userId =  TokenService.GetUserIdFromToken(token);
+            var userId = TokenService.GetUserIdFromToken(token);
 
             if (!string.IsNullOrEmpty(userId))
             {
@@ -25,10 +32,14 @@
 
                     if (response.IsSuccessStatusCode)
                     {
-                        await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
-                        await JS.InvokeVoidAsync("localStorage.removeItem", "userId");
-                        await JS.InvokeVoidAsync("localStorage.removeItem", "userName");
+                        await localStorage.RemoveItemAsync("authToken");
+                        await localStorage.RemoveItemAsync("userId");
+                        await localStorage.RemoveItemAsync("userName");
+                        await _AuthService.RaiseOnLogout();
                     }
+                   
+                    var jwtAuthProvider = (JwtAuthenticationStateProvider)AuthProvider;
+                    jwtAuthProvider.NotifyUserLogout();
                     NavigationManager.NavigateTo("/login");
                 }
                 catch (Exception ex)
@@ -37,7 +48,6 @@
                 }
             }
         }
-        
-       
     }
+
 }

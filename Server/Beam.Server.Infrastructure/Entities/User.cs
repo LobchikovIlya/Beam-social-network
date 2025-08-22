@@ -14,4 +14,3 @@ public class User
     public virtual ICollection<CommentLike> CommentLikes { get; set; }
     public virtual ICollection<PostLike> PostLikes { get; set; } = new List<PostLike>();
 }
-    

@@ -14,7 +14,7 @@ public class PostService : IPostService
     private readonly BeamDbContext _dbContext;
     private readonly IUserService _userService;
 
-    public PostService(BeamDbContext dbContext,IUserService userService)
+    public PostService(BeamDbContext dbContext, IUserService userService)
     {
         _dbContext = dbContext;
         _userService = userService;
@@ -27,28 +27,24 @@ public class PostService : IPostService
             .Select(p => new PostDto
             {
                 Id = p.Id,
-                UserId = p.UserId, 
+                UserId = p.UserId,
                 UserName = p.UserName,
                 Content = p.Content,
                 CreationDate = p.CreationDate,
                 LikesCount = p.Likes.Count, // Подсчитывается на уровне базы данных
                 IsLiked = p.Likes.Any(like => like.UserId == userId) // Проверяется на уровне базы данных
-            }) 
+            })
             .ToListAsync();
 
         // Преобразуем результат в список DTO
         return posts;
-
     }
 
 
     public async Task<PostDto> GetByIdAsync(Guid id)
     {
         var post = await _dbContext.Posts.FindAsync(id);
-        if (post == null)
-        {
-            throw new NotFoundException($"Post id {id} not found");
-        }
+        if (post == null) throw new NotFoundException($"Post id {id} not found");
 
         return new PostDto
         {
@@ -60,16 +56,13 @@ public class PostService : IPostService
         };
     }
 
-    public async Task<Guid> CreateAsync(PostInputDto input,Guid userId)
+    public async Task<Guid> CreateAsync(PostInputDto input, Guid userId)
     {
         var validator = new PostInputDtoValidator();
         var validationResult = await validator.ValidateAsync(input);
-        if (!validationResult.IsValid)
-        {
-            throw new ValidationException();
-        }
+        if (!validationResult.IsValid) throw new ValidationException();
         var user = await _userService.GetByIdAsync(userId);
-        
+
         var post = new Post
         {
             Id = Guid.NewGuid(),
@@ -88,10 +81,7 @@ public class PostService : IPostService
     public async Task UpdateAsync(Guid id, PostInputDto input)
     {
         var post = await _dbContext.Posts.FindAsync(id);
-        if (post == null)
-        {
-            throw new NotFoundException("Post not found");
-        }
+        if (post == null) throw new NotFoundException("Post not found");
 
         post.Content = input.Content;
         await _dbContext.SaveChangesAsync();
@@ -100,10 +90,7 @@ public class PostService : IPostService
     public async Task DeleteByIdAsync(Guid id)
     {
         var post = await _dbContext.Posts.FindAsync(id);
-        if (post == null)
-        {
-            throw new NotFoundException("Post not found");
-        }
+        if (post == null) throw new NotFoundException("Post not found");
 
         _dbContext.Posts.Remove(post);
         await _dbContext.SaveChangesAsync();
@@ -119,10 +106,10 @@ public class PostService : IPostService
                 Content = post.Content,
                 CreationDate = post.CreationDate,
                 LikesCount = _dbContext.PostLikes.Count(like => like.PostId == post.Id), // ← Подсчет лайков
-                IsLiked = _dbContext.PostLikes.Any(like => like.PostId == post.Id && like.UserId == userId) // ← Лайкал ли текущий пользователь
+                IsLiked = _dbContext.PostLikes.Any(like =>
+                    like.PostId == post.Id && like.UserId == userId) // ← Лайкал ли текущий пользователь
             })
             .OrderByDescending(p => p.CreationDate)
             .ToListAsync();
     }
-    
 }

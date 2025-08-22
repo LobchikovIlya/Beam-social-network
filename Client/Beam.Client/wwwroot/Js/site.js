@@ -1,17 +1,15 @@
-﻿
-
-window.scrollToBottom = (element) => {
-    if(element){
+﻿window.scrollToBottom = (element) => {
+    if (element) {
         element.scrollTop = element.scrollHeight;
     }
-   
+
 };
 
 window.onload = function () {
     checkToken(); // Проверяем токен при загрузке
 
     // Отслеживаем изменение токена в localStorage
-    window.addEventListener("storage", function(event) {
+    window.addEventListener("storage", function (event) {
         if (event.key === "token") {
             checkToken();
         }
@@ -36,10 +34,13 @@ function checkToken() {
 
     console.log("✅ Токен найден! Начинаем отслеживание активности.");
     document.addEventListener("mousemove", sendActivity);
+
 }
 
+const apiBaseUrl = window['apiBaseUrl'] || 'http://localhost:5001';
+
 function sendActivity() {
-    fetch('http://localhost:5049/api/users/update-activity', {
+    fetch(`${apiBaseUrl}/api/users/update-activity`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

@@ -1,17 +1,15 @@
+using System.Text;
 using Beam.Api.Middlewares;
 using Beam.Application.Services;
 using Beam.Application.Services.Interfaces;
+using Beam.Application.Validators;
 using Beam.Infrastructure;
+using Beam.Infrastructure.Hubs;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
-using Beam.Application.Validators;
-using Beam.Infrastructure.Hubs;
-using FluentValidation;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("BeamDatabase");
@@ -56,11 +54,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowBlazorApp",
         policy =>
         {
-            policy .WithOrigins(
+            policy.WithOrigins(
                     "http://localhost:5109",
                     "http://localhost:5100",
-                    "http://client"
-                    )
+                    "http://localhost:5000"
+                )
                 .AllowAnyMethod()
                 .AllowAnyHeader()
                 .AllowCredentials();
@@ -81,33 +79,44 @@ builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<ICommentLikeService, CommentLikeService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserRoleService, UserRoleService>();
-builder.Services.AddScoped<ICommentNotificationService,CommentNotificationService>();
+builder.Services.AddScoped<ICommentNotificationService, CommentNotificationService>();
 builder.Services.AddScoped<IPostNotificationService, PostNotificationService>();
 builder.Services.AddScoped<IPostLikeNotificationService, PostLikeNotificationService>();
 builder.Services.AddHostedService<UserActivityMonitorService>();
 builder.Services.AddScoped<IUserActivityService, UserActivityService>();
+builder.Services.AddScoped<IChatMessageService, ChatMessageService>();
 
 builder.Services.AddAuthentication(options =>
-{
-    
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-    };
-});
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                    context.Token = accessToken;
+
+                return Task.CompletedTask;
+            }
+        };
+    });
 
 builder.Services.AddAuthorization(options =>
 {
@@ -116,14 +125,15 @@ builder.Services.AddAuthorization(options =>
 });
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// if (app.Environment.IsDevelopment())
+// {
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Beam API V1");
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Beam API V1");
+    c.RoutePrefix = "swagger"; // путь будет /swagger
+});
+// }
 
 //app.UseHttpsRedirection();
 app.UseRouting();
@@ -135,7 +145,7 @@ app.UseMiddleware<UserActivityMiddleware>();
 
 
 //app.UseWebSockets();
-app.MapHub<ChatHub>("/chatHub");
+app.MapHub<ChatHub>("/chatHub").RequireAuthorization();
 
 app.MapControllers();
 

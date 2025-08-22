@@ -4,13 +4,22 @@ using Beam.Infrastructure.Entities;
 using Beam.Shared.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
+
 namespace Beam.Infrastructure.Hubs;
-//[Authorize]
+
+// [Authorize]
 public class ChatHub : Hub
 {
-    
     private static readonly ConcurrentDictionary<string, Guid> OnlineUsers = new();
+    private readonly BeamDbContext _context;
+
+    public ChatHub(BeamDbContext context)
+    {
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        ;
+    }
+
+
 // Методы для работы с комментариями
     public async Task JoinGroup(string postId)
     {
@@ -78,32 +87,34 @@ public class ChatHub : Hub
         // Отправляем уведомление конкретному пользователю об обновлении поста
         await Clients.User(userId.ToString()).SendAsync("ReceiveUserPostUpdated", post);
     }
-    
-    public async Task  NotifyPostLikeCreated(PostDto post,string userId)
+
+    public async Task NotifyPostLikeCreated(PostDto post, string userId)
     {
         // Отправляем событие всем подключенным клиентам о лайке
         await Clients.Client(userId).SendAsync("ReceivePostLiked", post);
     }
 
     // Событие для удаления лайка
-    public async Task NotifyPostLikeDeleted(PostDto post,string userId)
+    public async Task NotifyPostLikeDeleted(PostDto post, string userId)
     {
         // Отправляем событие всем подключенным клиентам о снятии лайка
         await Clients.Client(userId).SendAsync("ReceivePostUnLiked", post);
     }
+
     public async Task UpdateLikesCount(PostDto postDto)
     {
         // Обработчик для обновления лайков на всех клиентах
         // Например, вы можете обновить интерфейс на клиентской стороне
         await Clients.All.SendAsync("UpdateLikesCount", postDto);
-        
     }
+
     public async Task SendPostLikedStatus(Guid postId, Guid userId, bool isLiked)
     {
         // Отправляем обновленный статус лайка только конкретному пользователю
         await Clients.User(userId.ToString()).SendAsync("ReceivePostLikedStatus", postId, isLiked);
     }
-    public async Task  NotifyCommentLikeCreated(CommentDto comment,string userId)
+
+    public async Task NotifyCommentLikeCreated(CommentDto comment, string userId)
     {
         await Clients.All.SendAsync("ReceiveCommentLikedStatus", new CommentDto
         {
@@ -115,7 +126,7 @@ public class ChatHub : Hub
     }
 
     // Событие для удаления лайка
-    public async Task NotifyCommentLikeDeleted(CommentDto comment,string userId)
+    public async Task NotifyCommentLikeDeleted(CommentDto comment, string userId)
     {
         await Clients.All.SendAsync("ReceiveCommentUnLiked", new CommentDto
         {
@@ -125,28 +136,70 @@ public class ChatHub : Hub
         // Отправляем событие всем подключенным клиентам о снятии лайка
         await Clients.Client(userId).SendAsync("ReceiveCommentUnLiked", comment);
     }
+
     public async Task UpdateCommentLikesCount(CommentDto commentDto)
     {
         // Обработчик для обновления лайков на всех клиентах
         // Например, вы можете обновить интерфейс на клиентской стороне
         await Clients.All.SendAsync("UpdateLikesCount", commentDto);
-        
     }
+
     public async Task SendCommentUpdated(Guid postId, CommentDto updatedComment)
     {
         await Clients.Group(postId.ToString()).SendAsync("ReceiveCommentUpdated", updatedComment);
     }
 
-    public async Task NotifyUsersStatusUpdated(Guid userId, bool isOnline)
+    // public async Task NotifyUsersStatusUpdated(Guid userId, bool isOnline)
+    // {
+    //     Console.WriteLine($"Принял от  контроллера данные !!!!{userId},{isOnline}");
+    //     await Clients.All.SendAsync("UsersStatusChanged", userId, isOnline);
+    // }
+
+    // public async Task NotifyNewUser()
+    // {
+    //     await Clients.All.SendAsync("UsersListUpdated");
+    // }
+
+    // методы приватного чата
+   [Authorize]
+    public async Task SendMessage(Guid receiverId, string message)
     {
-        await Clients.All.SendAsync("UsersStatusChanged", userId, isOnline);
+        var senderIdstr = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(senderIdstr, out var senderId))
+            throw new HubException("Invalid or missing sender ID.");
+
+        var chatMessage = new ChatMessage
+        {
+            SenderId = senderId,
+            ReceiverId = receiverId,
+            Text = message,
+            Timestamp = DateTimeOffset.UtcNow
+        };
+        await _context.ChatMessages.AddAsync(chatMessage);
+        await _context.SaveChangesAsync();
+
+        var dto = new ChatMessageDto
+        {
+            Id = chatMessage.Id,
+            SenderId = chatMessage.SenderId,
+            ReceiverId = chatMessage.ReceiverId,
+            Text = chatMessage.Text,
+            CreationDate = chatMessage.Timestamp
+        };
+
+        await Clients.User(receiverId.ToString()).SendAsync("ReceiveMessage", dto);
+        await Clients.User(senderId.ToString()).SendAsync("ReceiveMessage", dto);
+
+        await Clients.User(receiverId.ToString()).SendAsync("NotifyNewMessage", senderId, dto.Text);
+
+        Console.WriteLine($"Отправлено сообщение: {dto.Text}");
     }
 
-    public async Task NotifyNewUser()
+    public async Task NotifyTyping(Guid receiverId, bool isTyping)
     {
-        await Clients.All.SendAsync("UserListUpdated");
+        var senderIdstr = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if(!Guid.TryParse(senderIdstr, out var senderId))
+            throw new HubException("Invalid or missing sender ID.");
+        await Clients.User(receiverId.ToString()).SendAsync("UserTyping",senderId, isTyping);
     }
-
-    
 }
-

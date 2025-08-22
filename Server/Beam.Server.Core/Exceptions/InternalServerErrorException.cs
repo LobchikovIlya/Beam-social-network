@@ -6,6 +6,5 @@ public class InternalServerErrorException : ExceptionBase
 {
     public InternalServerErrorException(string message) : base(message, HttpStatusCode.InternalServerError)
     {
-        
     }
 }

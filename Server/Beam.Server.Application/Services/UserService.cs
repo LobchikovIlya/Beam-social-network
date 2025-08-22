@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Beam.Application.Services.Interfaces;
+﻿using Beam.Application.Services.Interfaces;
 using Beam.Application.Utilities;
 using Beam.Application.Validators;
 using Beam.Core.Exceptions;
@@ -7,6 +6,7 @@ using Beam.Infrastructure;
 using Beam.Infrastructure.Entities;
 using Beam.Infrastructure.Hubs;
 using Beam.Shared.Dto;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ValidationException = FluentValidation.ValidationException;
 
@@ -15,10 +15,12 @@ namespace Beam.Application.Services;
 public class UserService : IUserService
 {
     private readonly BeamDbContext _dbContext;
+    private readonly IHubContext<ChatHub> _hubContext;
 
-    public UserService(BeamDbContext dbContext)
+    public UserService(BeamDbContext dbContext, IHubContext<ChatHub> hubContext)
     {
         _dbContext = dbContext;
+        _hubContext = hubContext;
     }
 
     public async Task<List<UserDto>> GetAllAsync()
@@ -30,17 +32,14 @@ public class UserService : IUserService
             Tag = user.Tag,
             Name = user.Name,
             CreationDate = user.CreationDate,
-            IsOnline = user.IsOnline,
+            IsOnline = user.IsOnline
         }).ToList();
     }
 
     public async Task<UserDto> GetByIdAsync(Guid id)
     {
         var user = await _dbContext.Users.FindAsync(id);
-        if (user == null)
-        {
-            throw new NotFoundException($"Пользователь с Id {id} не найден.");
-        }
+        if (user == null) throw new NotFoundException($"Пользователь с Id {id} не найден.");
 
         return new UserDto
         {
@@ -48,9 +47,10 @@ public class UserService : IUserService
             Tag = user.Tag,
             Name = user.Name,
             CreationDate = user.CreationDate,
-            IsOnline = user.IsOnline,
+            IsOnline = user.IsOnline
         };
     }
+
     public async Task<List<UserDto>> GetUsersByIdsAsync(List<Guid> userIds)
     {
         return await _dbContext.Users
@@ -59,7 +59,7 @@ public class UserService : IUserService
             {
                 Id = u.Id,
                 Tag = u.Tag,
-                IsOnline = u.IsOnline,
+                IsOnline = u.IsOnline
             })
             .ToListAsync();
     }
@@ -69,11 +69,8 @@ public class UserService : IUserService
     {
         var validator = new UserInputDtoValidator();
         var validationResult = await validator.ValidateAsync(input);
-        if (!validationResult.IsValid)
-        {
-            throw new ValidationException(validationResult.Errors);
-        }
-        
+        if (!validationResult.IsValid) throw new ValidationException(validationResult.Errors);
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -81,11 +78,12 @@ public class UserService : IUserService
             Name = input.Name,
             PasswordHash = PasswordHasher.HashPassword(input.Password),
             CreationDate = DateTimeOffset.UtcNow,
-            IsOnline = false,
+            IsOnline = false
         };
 
         await _dbContext.Users.AddAsync(user);
         await _dbContext.SaveChangesAsync();
+        await _hubContext.Clients.All.SendAsync("UserListUpdated");
 
         return new UserDto
         {
@@ -93,26 +91,20 @@ public class UserService : IUserService
             Tag = user.Tag,
             Name = user.Name,
             CreationDate = user.CreationDate,
-            IsOnline =false
+            IsOnline = false
         };
     }
 
     public async Task<Guid> UpdateAsync(Guid id, UserInputDto input)
     {
         var user = await _dbContext.Users.FindAsync(id);
-        if (user == null)
-        {
-            throw new NotFoundException($"Пользователь с Id {id} не найден.");
-        }
+        if (user == null) throw new NotFoundException($"Пользователь с Id {id} не найден.");
 
         user.Name = input.Name;
         user.Tag = input.Tag;
-       
 
-        if (!string.IsNullOrEmpty(input.Password))
-        {
-            user.PasswordHash = PasswordHasher.HashPassword(input.Password);
-        }
+
+        if (!string.IsNullOrEmpty(input.Password)) user.PasswordHash = PasswordHasher.HashPassword(input.Password);
 
         await _dbContext.SaveChangesAsync();
 
@@ -122,10 +114,7 @@ public class UserService : IUserService
     public async Task DeleteByIdAsync(Guid id)
     {
         var user = await _dbContext.Users.FindAsync(id);
-        if (user == null)
-        {
-            throw new NotFoundException($"Пользователь с Id {id} не найден.");
-        }
+        if (user == null) throw new NotFoundException($"Пользователь с Id {id} не найден.");
 
         _dbContext.Users.Remove(user);
         await _dbContext.SaveChangesAsync();
@@ -135,16 +124,10 @@ public class UserService : IUserService
     public async Task<UserDto> ValidateUserAsync(string tag, string password)
     {
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Tag == tag);
-        if (user == null)
-        {
-            throw new NotFoundException("Пользователь не найден.");
-        }
+        if (user == null) throw new NotFoundException("Пользователь не найден.");
 
-        bool isPasswordValid = PasswordHasher.VerifyPassword(user.PasswordHash, password);
-        if (!isPasswordValid)
-        {
-            throw new BadRequestException("Неверный пароль.");
-        }
+        var isPasswordValid = PasswordHasher.VerifyPassword(user.PasswordHash, password);
+        if (!isPasswordValid) throw new BadRequestException("Неверный пароль.");
 
         return new UserDto
         {
@@ -152,7 +135,7 @@ public class UserService : IUserService
             Name = user.Name,
             Tag = user.Tag,
             CreationDate = user.CreationDate,
-            IsOnline = user.IsOnline,
+            IsOnline = user.IsOnline
         };
     }
 
@@ -162,21 +145,22 @@ public class UserService : IUserService
         if (user != null)
         {
             user.IsOnline = isOnline;
-            await _dbContext.SaveChangesAsync();    
+            await _dbContext.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync("UsersStatusChanged", userId, isOnline);
+            await _hubContext.Clients.All.SendAsync("UsersLIstUpdated");
         }
     }
 
     public async Task LogoutAsync(Guid userId)
     {
         var user = await _dbContext.Users.FindAsync(userId);
-        if(user != null)
+        if (user != null)
         {
-           
             user.IsOnline = false;
             await UpdateLastActivityAsync(userId);
             await _dbContext.SaveChangesAsync();
-            
-            
+
+            await _hubContext.Clients.All.SendAsync("UserLIstUpdated");
         }
     }
 

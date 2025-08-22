@@ -7,10 +7,10 @@ public class PostDto
     public string UserName { get; set; }
     public string Content { get; set; }
     public int LikesCount { get; set; }
-    
+
     public bool IsLiked { get; set; }
-   
+
     public DateTimeOffset CreationDate { get; set; }
-    public int CommentCount { get; set; } 
-    public List<CommentDto> Comments { get; set; } 
+    public int CommentCount { get; set; }
+    public List<CommentDto> Comments { get; set; }
 }

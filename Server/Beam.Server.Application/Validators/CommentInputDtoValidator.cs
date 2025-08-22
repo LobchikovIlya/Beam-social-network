@@ -1,5 +1,4 @@
-﻿
-using Beam.Shared.Dto;
+﻿using Beam.Shared.Dto;
 using FluentValidation;
 
 namespace Beam.Application.Validators;

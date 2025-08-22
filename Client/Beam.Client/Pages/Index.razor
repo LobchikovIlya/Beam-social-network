@@ -1,9 +1,16 @@
 ﻿
 @page "/"
+@using Beam.Shared.Dto
+@using Beam.UI.Interfaces
+@using Blazored.LocalStorage
 @inject IJSRuntime JS
+@inject IUiUserService HttpUiUserService
+@inject ILocalStorageService LocalStorage
+@inject ITokenService TokenService
 
 
-@if (!string.IsNullOrEmpty(userName))
+
+@if (user.IsOnline)
 {
     <h4>Привет, @userName!</h4>
 }
@@ -13,12 +20,36 @@ else
 }
 
 @code {
+    private UserDto user = new();
     private string userName;
+
 
     protected override async Task OnInitializedAsync()
     {
+        try
+        {
 // Получаем имя пользователя из localStorage
-        userName = await JS.InvokeAsync<string>("localStorage.getItem", "userName");
+            userName = await JS.InvokeAsync<string>("localStorage.getItem", "userName");
+            var token = await LocalStorage.GetItemAsync<string>("authToken");
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                Console.WriteLine("Token is missing.");
+                return;
+            }
+
+            var userIdstr = TokenService.GetUserIdFromToken(token);
+            if (!Guid.TryParse(userIdstr, out var id))
+            {
+                Console.WriteLine("Token or UserId is missing, skipping SignalR setup.");
+                return;
+            }
+
+            user = await HttpUiUserService.GetByIdAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user: {ex.Message}");
+        }
     }
 
 }

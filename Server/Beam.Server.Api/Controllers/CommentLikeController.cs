@@ -1,12 +1,9 @@
-﻿using Beam.Application.Filters;
+﻿using System.Security.Claims;
+using Beam.Application.Filters;
 using Beam.Application.Services.Interfaces;
+using Beam.Shared.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Security.Claims;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Beam.Shared.Dto;
 
 [Authorize(Roles = "User")]
 [ApiController]
@@ -17,21 +14,22 @@ public class CommentLikesController : ControllerBase
     private readonly ICommentService _commentService;
     private readonly ILogger<CommentLikesController> _logger;
 
-    public CommentLikesController(ICommentLikeService commentLikeService, 
-                                  ICommentService commentService,
-                                  ILogger<CommentLikesController> logger)
+    public CommentLikesController(ICommentLikeService commentLikeService,
+        ICommentService commentService,
+        ILogger<CommentLikesController> logger)
     {
         _commentLikeService = commentLikeService;
         _commentService = commentService;
         _logger = logger;
     }
+
     [HttpGet("count")]
     public async Task<IActionResult> GetCommentLikes(Guid commentId)
     {
-        var userId = GetUserId(); 
+        var userId = GetUserId();
         var likesCount = await _commentLikeService.GetLikeCountAsync(commentId);
         var isLiked = await _commentLikeService.IsCommentLikedAsync(commentId, userId);
-    
+
         return Ok(new { LikesCount = likesCount, IsLiked = isLiked });
     }
 
@@ -43,6 +41,7 @@ public class CommentLikesController : ControllerBase
             _logger.LogWarning("Попытка доступа без аутентификации.");
             throw new UnauthorizedAccessException("Пользователь не аутентифицирован.");
         }
+
         return userId;
     }
 
@@ -55,7 +54,7 @@ public class CommentLikesController : ControllerBase
 
             await _commentLikeService.ToggleLikeAsync(commentId);
             var likesCount = await _commentLikeService.GetLikeCountAsync(commentId);
-            var isLiked = await _commentLikeService.IsCommentLikedAsync(commentId,userId); 
+            var isLiked = await _commentLikeService.IsCommentLikedAsync(commentId, userId);
 
             var comment = await _commentService.GetByIdAsync(commentId);
 
@@ -85,7 +84,7 @@ public class CommentLikesController : ControllerBase
     }
 
     [HttpGet("all")]
-    public async Task<IActionResult> GetLikes( [FromQuery] CommentLikeFilter filter)
+    public async Task<IActionResult> GetLikes([FromQuery] CommentLikeFilter filter)
     {
         try
         {
@@ -104,14 +103,14 @@ public class CommentLikesController : ControllerBase
             return BadRequest(new { ErrorMessage = "Произошла ошибка при обработке запроса." });
         }
     }
-    
+
     [HttpGet("status")]
     public async Task<IActionResult> CheckLikeStatus(Guid commentId)
     {
         try
         {
             var userId = GetUserId();
-            var isLiked = await _commentLikeService.IsCommentLikedAsync(commentId,userId);
+            var isLiked = await _commentLikeService.IsCommentLikedAsync(commentId, userId);
             return Ok(isLiked);
         }
         catch (UnauthorizedAccessException ex)
@@ -125,6 +124,4 @@ public class CommentLikesController : ControllerBase
             return BadRequest(new { ErrorMessage = "Произошла ошибка при обработке запроса." });
         }
     }
-   
-
 }

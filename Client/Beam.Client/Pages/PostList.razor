@@ -1,18 +1,18 @@
 ﻿@page "/posts"
 @using System.Net.Http.Headers
 @using System.Text
-@using Beam.Application.Services
-@using Beam.Application.Services.Interfaces
-@using Beam.Infrastructure.Entities
 @using Beam.Infrastructure.Hubs
-@using Microsoft.AspNetCore.SignalR.Client
-@inject IJSRuntime JS
+@using Beam.UI.Configuration
 @using Beam.UI.Dtos
 @using Blazored.LocalStorage
 @using Microsoft.AspNetCore.SignalR
+@inject IJSRuntime JS
 @inject HttpClient Http
 @inject ILocalStorageService LocalStorage
 @inject HubConnection _HubConnection
+@inject AppSettings settings
+
+
 
 
 @code {
@@ -66,15 +66,15 @@
                 StateHasChanged();
             }
         });
-      
 
-        _HubConnection.Reconnecting += (error) =>
+
+        _HubConnection.Reconnecting += error =>
         {
             Console.WriteLine($"Переподключение: {error?.Message}");
             return Task.CompletedTask;
         };
 
-        _HubConnection.Reconnected += (connectionId) =>
+        _HubConnection.Reconnected += connectionId =>
         {
             Console.WriteLine($"Подключение восстановлено. ID: {connectionId}");
             return Task.CompletedTask;
@@ -92,7 +92,7 @@
         }
     }
 
-    private readonly object _lock = new object();
+    private readonly object _lock = new();
 
     private void UpdateLikeCount(Guid postId, int likeCount)
     {
@@ -119,7 +119,7 @@
             var token = await LocalStorage.GetItemAsync<string>("authToken");
             if (!string.IsNullOrEmpty(token))
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, "http://localhost:5049/api/Post");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.ApiBaseUrl}/api/Post");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
                 var response = await Http.SendAsync(request);
@@ -158,18 +158,19 @@
                 Console.WriteLine("Token is missing.");
                 return;
             }
+
             // Создаем запрос с токеном
-            var request = new HttpRequestMessage(HttpMethod.Post, $"http://localhost:5049/api/post/{postId}/likes");
+            var request = new HttpRequestMessage(HttpMethod.Post, $"{settings.ApiBaseUrl}/api/post/{postId}/likes");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             request.Content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
 
 
             // Отправляем запрос для переключения лайка
-            var response = await Http.PostAsync($"http://localhost:5049/api/post/{postId}/likes", new StringContent(""));
+            var response = await Http.PostAsync($"{settings.ApiBaseUrl}/api/post/{postId}/likes", new StringContent(""));
 
             if (response.IsSuccessStatusCode)
             {
-                var updatedPost = await response.Content.ReadFromJsonAsync<PostDto>(); 
+                var updatedPost = await response.Content.ReadFromJsonAsync<PostDto>();
 
                 if (updatedPost != null)
                 {
@@ -205,8 +206,8 @@
             await InvokeAsync(StateHasChanged);
         }
     }
-    
-   
+
+
     private async Task ScrollToBottomAsync()
     {
         await Task.Delay(100);
@@ -229,7 +230,8 @@
 }
 else if (posts == null || !posts.Any())
 {
-    <p>Постов пока нет.</p>
+    <p>Здесь вы можете создать  тему которую бы  вы  хотели обсудить со всеми .</p>
+    <CreatePost/>
 }
 else
 {

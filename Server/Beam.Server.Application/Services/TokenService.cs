@@ -13,27 +13,24 @@ public class TokenService : ITokenService
     private readonly IConfiguration _configuration;
     private readonly IUserRoleService _userRoleService;
 
-    public TokenService(IConfiguration configuration,IUserRoleService userRoleService)
+    public TokenService(IConfiguration configuration, IUserRoleService userRoleService)
     {
         _configuration = configuration;
         _userRoleService = userRoleService;
     }
 
     public async Task<string> GenerateTokenAsync(UserDto user)
-    
+
     {
         var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.UniqueName, user.Tag),
-            new Claim(ClaimTypes.Name, user.Name)    
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.UniqueName, user.Tag),
+            new(ClaimTypes.Name, user.Name)
         };
         var roles = await _userRoleService.GetRolesToUserAsync(user.Id);
-        foreach (var role in roles)
-        {
-            claims.Add(new Claim(ClaimTypes.Role, role.Name));
-        }
+        foreach (var role in roles) claims.Add(new Claim(ClaimTypes.Role, role.Name));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

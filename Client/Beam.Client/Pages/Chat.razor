@@ -1,17 +1,202 @@
-﻿@page "/chat/{userId}"
+﻿@page "/chat/{receiverId:guid}"
+@using Beam.Client.BlazorWasm.Services
+@using Beam.Shared.Dto
+@using Beam.UI.Configuration
+@using Blazored.LocalStorage
+@using IUserService = Beam.UI.Interfaces.IUiUserService
+@using ITokenService = Beam.UI.Interfaces.ITokenService
 @inject NavigationManager Navigation
+@inject ILocalStorageService LocalStorage
+@inject HubConnection HubConnection
+@inject ITokenService TokenService
+@inject IUserService HttpUiUserService
+@inject HttpClient Http
+@inject AppSettings settings
+@inject SignalService SignalRService
 
-<h3>Чат с пользователем </h3>
 
-<p>Здесь будет интерфейс чата...</p>
+<p>Чат с пользователем: @receiverName</p>
 
-<button @onclick="GoBack">Назад</button>
+<div class="chat-container">
+    <div class="messages">
+        @foreach (var msg in messages)
+        {
+            <div class="@(msg.SenderId == currentUserId ? "my-message" : "their-message")">
+                <b>@(msg.SenderId == currentUserId ? "Я" : $"{receiverName}"):</b> @msg.Text
+            </div>
+        }
+    </div>
+
+    <div class="input-box">
+        <input @bind="newMessage" @oninput="OnInput" placeholder="Введите сообщение..."@onkeydown="HandleKeyDown"/>
+    </div>
+    @* <button @onclick="Send">Отправить</button> *@
+</div>
 
 @code {
-    [Parameter] public string UserId { get; set; }
+    [Parameter] public Guid ReceiverId { get; set; }
+    private List<ChatMessageDto> messages = new();
+    private string newMessage = "";
+    private Guid currentUserId;
+    private string receiverName;
+    private UserDto user;
+    private bool isReceiverTyping = false;
+    private System.Timers.Timer typingTimer;
+    private CancellationTokenSource? typingCts;
 
-    private void GoBack()
+
+    // private string receiverName = "";
+
+    protected override async Task OnInitializedAsync()
     {
-        Navigation.NavigateTo("/usersList");
+        user = await HttpUiUserService.GetByIdAsync(ReceiverId);
+        receiverName = user.Tag;
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        var userIdstr = TokenService.GetUserIdFromToken(token);
+        if (!Guid.TryParse(userIdstr, out var id))
+        {
+            Console.WriteLine("Token or UserId is missing, skipping SignalR setup.");
+            return;
+        }
+
+        currentUserId = id;
+        // var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.ApiBaseUrl}/api/conversation?senderId={currentUserId}&receiverId={ReceiverId}");
+        var response = await Http.GetAsync($"{settings.ApiBaseUrl}/api/conversation?senderId={currentUserId}&receiverId={ReceiverId}");
+        if (response.IsSuccessStatusCode)
+        {
+            messages = await response.Content.ReadFromJsonAsync<List<ChatMessageDto>>() ?? new List<ChatMessageDto>();
+        }
+
+
+        HubConnection.On<ChatMessageDto>("ReceiveMessage", msg =>
+        {
+            Console.WriteLine($"Получено сообщение: {msg.Text}");
+            if ((msg.SenderId == ReceiverId && msg.ReceiverId == currentUserId) ||
+                (msg.SenderId == currentUserId && msg.ReceiverId == ReceiverId))
+            {
+                messages.Add(msg);
+                Console.WriteLine(messages.Count);
+                InvokeAsync(StateHasChanged);
+            }
+        });
+        SignalRService.OnUsersTyping += HandleUserTyping;
+        try
+        {
+            if (HubConnection.State == HubConnectionState.Disconnected)
+            {
+                await HubConnection.StartAsync();
+                Console.WriteLine("SignalR connection started");
+            }
+            else
+            {
+                Console.WriteLine($"SignalR connection state is {HubConnection.State}, not starting.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при подключении SignalR: {ex.Message}");
+        }
     }
+
+    private void HandleUserTyping(Guid fromUserId, bool typing)
+    {
+        if (fromUserId == ReceiverId)
+        {
+            isReceiverTyping = typing;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Send();
+        }
+    }
+
+
+    private async Task Send()
+    {
+        if (!string.IsNullOrWhiteSpace(newMessage))
+        {
+            await HubConnection!.InvokeAsync("SendMessage", ReceiverId, newMessage);
+            newMessage = "";
+            await SignalRService.SendTypingStatus(ReceiverId, false); // сброс печати
+        }
+    }
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        newMessage = e.Value?.ToString() ?? string.Empty;
+
+        // Сейчас пользователь печатает, если строка не пустая
+        var currentlyTyping = !string.IsNullOrWhiteSpace(newMessage);
+
+        // Отправляем статус "печатает/не печатает"
+        await SignalRService.SendTypingStatus(ReceiverId, currentlyTyping);
+
+        // Перезапускаем дебаунс для авто-сброса статуса через N мс без ввода
+        ResetTypingDebounce();
+    }
+    private void ResetTypingDebounce(int idleMs = 1500)
+    {
+        // Отменяем предыдущую «задержку»
+        typingCts?.Cancel();
+        typingCts?.Dispose();
+
+        typingCts = new CancellationTokenSource();
+        var token = typingCts.Token;
+        var receiver = ReceiverId; // захватываем на случай смены параметров
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(idleMs, token);
+                // Если задержка не отменена — считаем, что пользователь перестал печатать
+                await SignalRService.SendTypingStatus(receiver, false);
+            }
+            catch (OperationCanceledException)
+            {
+                // тихо выходим — был новый ввод, задержка отменена
+            }
+        }, token);
+    }
+
+
+    private void ResetTypingTimer(bool currentlyTyping)
+    {
+        typingTimer?.Stop();
+        typingTimer?.Dispose();
+        if (currentlyTyping)
+        {
+            typingTimer = new System.Timers.Timer(2000);
+            typingTimer.Elapsed += (s, e) =>
+            {
+                Task.Run(async () =>
+                {
+                    await SignalRService.SendTypingStatus(ReceiverId,currentlyTyping);
+                });
+               
+                typingTimer.Stop();
+                typingTimer.Dispose();
+            };
+            typingTimer.AutoReset = false;
+            typingTimer.Start();
+        }
+        else
+        {
+            isReceiverTyping = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        SignalRService.OnUsersTyping -= HandleUserTyping;
+        typingCts?.Cancel();
+        typingCts?.Dispose();
+    }
+
 }

@@ -1,20 +1,19 @@
 ﻿@page "/CommentPost"
-@attribute [Authorize]
-
 @using System.Net.Http.Headers
+@using Beam.Client.BlazorWasm.Services
+@using Beam.UI.Configuration
 @using Beam.UI.Dtos
+@using Beam.UI.Interfaces
 @using Blazored.LocalStorage
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
 @inject HttpClient Http
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILocalStorageService LocalStorage
-@using Beam.Client.BlazorWasm.Services
-@using Microsoft.AspNetCore.SignalR.Client
-@using Microsoft.EntityFrameworkCore.Metadata.Internal
-@using Microsoft.AspNetCore.SignalR
-@using Microsoft.AspNetCore.Components
 @inject NavigationManager Navigation
+@inject AppSettings settings
+@inject ITokenService TokenService
 
 
 
@@ -27,7 +26,8 @@
 
     <div class="form-group">
         <label for="Content"></label>
-        <InputTextArea oninput="autoResize(this)" id="Content" @bind-Value="commentInputDto.Content" class="form-control-comment" placeholder="Коментарий..."/>
+        <InputTextArea oninput="autoResize(this)" id="Content" @bind-Value="commentInputDto.Content"
+                       class="form-control-comment" placeholder="Коментарий..."/>
         <button type="submit" class="btn-comment  fa fa-comments"></button>
     </div>
 </EditForm>
@@ -35,9 +35,9 @@
 
 @code {
     [Parameter] public Guid PostId { get; set; }
-    private CommentInputDto commentInputDto = new CommentInputDto();
+    private CommentInputDto commentInputDto = new();
     private bool isAuthenticated = false;
-    
+
     private async Task HandleValidSubmit()
     {
         var tokenJson = await LocalStorage.GetItemAsync<string>("authToken");
@@ -50,15 +50,14 @@
 
             if (user.Identity.IsAuthenticated)
             {
-                var tokenService = new TokenService();
-                var author = tokenService.GetUserNameFromToken(tokenJson);
-               @* var userId = tokenService.GetUserIdFromToken(tokenJson);*@ // Извлекаем userId
+                var author = TokenService.GetUserNameFromToken(tokenJson);
+                @* var userId = tokenService.GetUserIdFromToken(tokenJson);*@ // Извлекаем userId
 
                 commentInputDto.Author = author;
-               @* commentInputDto.UserId = Guid.Parse(userId);*@ // Устанавливаем userId в DTO
+                @* commentInputDto.UserId = Guid.Parse(userId);*@ // Устанавливаем userId в DTO
             }
 
-            var response = await Http.PostAsJsonAsync($"/api/comment/{PostId}", commentInputDto);
+            var response = await Http.PostAsJsonAsync($"{settings.ApiBaseUrl}/api/comment/{PostId}", commentInputDto);
 
             if (response.IsSuccessStatusCode)
             {
@@ -70,4 +69,5 @@
             // Если токена нет, считаем пользователя неавторизованным
         }
     }
+
 }

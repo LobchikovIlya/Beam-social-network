@@ -1,5 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Beam.Application.Services.Interfaces;
 
 namespace Beam.Api.Middlewares;
@@ -15,23 +14,16 @@ public class UserActivityMiddleware
 
     public async Task InvokeAsync(HttpContext context, IUserService userService)
     {
-
-        if (!context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+        if (!context.User.Identity?.IsAuthenticated ?? false)
         {
-           
             await _next(context);
             return;
         }
-        
+
         var userIdClaim = context.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out Guid userId))
-        {
+        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
             await userService.UpdateLastActivityAsync(userId);
-        }
 
         await _next(context);
-    
-
-       
     }
 }

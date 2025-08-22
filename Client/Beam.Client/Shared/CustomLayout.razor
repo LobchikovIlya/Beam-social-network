@@ -1,12 +1,10 @@
-﻿@inherits LayoutComponentBase
-@using Beam.UI.Pages
-@using Blazored.Modal
-@using Blazored.Modal.Services
+﻿@using Beam.UI.Pages
+@inherits LayoutComponentBase
 @inject IModalService ModalService
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
 
-<BlazoredModal />
+<BlazoredModal/>
 
 <div class="custom-layout container-fluid">
     <header class="container-fluid bg-dark text-light py-3 mb-3">
@@ -30,35 +28,34 @@
 
     <div class="container-fluid flex-grow-1 d-flex">
         @* <aside class="sidebar col-3 bg- p-3"> *@
-            <p class="text-white">Пользователи</p>
-            <div class="user-list">
-                <NavMenu />
-            </div>
+        <p class="text-white">Пользователи</p>
+        <div class="user-list">
+            <NavMenu/>
+        </div>
         @* </aside> *@
 
         <main class="content col-9 d-flex flex-column p-3">
             <div class="post-list flex-grow-1 overflow-auto">
-                <PostList />
+                <PostList/>
             </div>
 
             <div class="post-creation">
-                <CreatePost />
+                <CreatePost/>
             </div>
         </main>
     </div>
 </div>
 
 @code {
-    private bool isAuthenticated = false;
+    private bool isAuthenticated;
 
-    private  void ShowLoginModal()
+    private void ShowLoginModal()
     {
         var modal = ModalService.Show<Login>("Вход");
-        var result =  modal.Result;
-        
+        var result = modal.Result;
     }
 
-    private bool isModalOpen = false;
+    private bool isModalOpen;
 
     private async Task ShowRegistrationModal()
     {
@@ -67,7 +64,7 @@
         isModalOpen = true;
         var modal = ModalService.Show<Registration>("Регистрация");
         var result = await modal.Result;
-        
+
         isModalOpen = false;
 
         if (!result.Cancelled)
@@ -84,6 +81,7 @@
         await JS.InvokeVoidAsync("localStorage.removeItem", "userName");
         NavigationManager.NavigateTo("/login");
     }
+
 }
 
 <style>

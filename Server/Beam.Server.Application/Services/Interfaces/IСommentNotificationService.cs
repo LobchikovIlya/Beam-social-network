@@ -1,5 +1,4 @@
-﻿using  Beam.Infrastructure.Hubs;
-using Beam.Shared.Dto;
+﻿using Beam.Shared.Dto;
 
 namespace Beam.Application.Services.Interfaces;
 

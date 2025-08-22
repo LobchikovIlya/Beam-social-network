@@ -1,12 +1,19 @@
 ﻿@page "/login"
+@using System.Net
+@using Beam.Client.BlazorWasm.Services
 @using Beam.UI.Dtos
+@using Blazored.LocalStorage
+@using Microsoft.AspNetCore.Components.Authorization
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
-@inject Blazored.LocalStorage.ILocalStorageService localStorage
-@inject IJSRuntime js
+@inject ILocalStorageService localStorage
+@inject AuthenticationStateProvider AuthProvider
+@inject AuthService _AuthService
 
 
-<h3>Вход в систему</h3>
+
+
+@* <h3>Вход в систему</h3> *@
 
 <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
     <DataAnnotationsValidator/>
@@ -20,6 +27,7 @@
     <div class="login-form-group">
         <label for="password">Пароль</label>
         <InputText id="password" type="password" class="form-control-login" @bind-Value="loginModel.Password"/>
+       
     </div>
 
     <button type="submit" class="btn btn-primary">
@@ -28,8 +36,9 @@
 </EditForm>
 
 @code {
-    private LoginModelDto loginModel = new LoginModelDto();
+    private readonly LoginModelDto loginModel = new();
     private string errorMessage;
+   
 
     private async Task HandleLogin()
     {
@@ -40,14 +49,23 @@
             if (response.IsSuccessStatusCode)
             {
                 var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponseDto>();
-                await js.InvokeVoidAsync("localStorage.setItem", "authToken", tokenResponse.Token);
 
-                var userName = loginModel.Tag;
-                await js.InvokeVoidAsync("localStorage.setItem", "userName", userName);
+                await localStorage.SetItemAsync("authToken", tokenResponse.Token);
+                await _AuthService.RaiseOnLogin();
+
+                var storedToken = await localStorage.GetItemAsync<string>("authToken");
+
+                Console.WriteLine($"Token in localStorage: {storedToken}");
+                
+                await localStorage.SetItemAsync("userName", loginModel.Tag);
+                
+                var jwtAuthProvider = (JwtAuthenticationStateProvider)AuthProvider;
+                
+                jwtAuthProvider.NotifyUserAuthentication(tokenResponse.Token);
 
                 NavigationManager.NavigateTo("/");
             }
-            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            else if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 NavigationManager.NavigateTo("/registration");
                 errorMessage = "Вы не зарегистрированы!!!";

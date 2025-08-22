@@ -1,9 +1,7 @@
-﻿
-using Beam.Application.Services.Interfaces;
-using Microsoft.AspNetCore.SignalR;
+﻿using Beam.Application.Services.Interfaces;
 using Beam.Infrastructure.Hubs;
 using Beam.Shared.Dto;
-
+using Microsoft.AspNetCore.SignalR;
 
 namespace Beam.Application.Services;
 

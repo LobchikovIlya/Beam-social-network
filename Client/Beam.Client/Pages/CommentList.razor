@@ -1,10 +1,7 @@
 ﻿@page "/CommentList"
-@using System.Net.Http.Headers
 @using System.Text
-@using Beam.Application.Services.Interfaces
 @using Beam.Infrastructure.Entities
-@using Beam.Infrastructure.Migrations
-@using Beam.Shared.Dto
+@using Beam.UI.Configuration
 @using Blazored.LocalStorage
 @using CommentDto = Beam.UI.Dtos.CommentDto
 @inject ILocalStorageService LocalStorage
@@ -12,12 +9,13 @@
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
 @inject HubConnection _HubConnection
+@inject AppSettings settings
 
 
 
 @code {
     [Parameter] public Guid PostId { get; set; }
-    private List<CommentDto> comments = new List<CommentDto>();
+    private List<CommentDto> comments = new();
     private bool isLoading = true;
     private ElementReference commentListContainer;
 
@@ -26,7 +24,6 @@
         await InitializeSignalRAsync();
         await LoadCommentsAsync(PostId);
         await LoadAllCommentLikesAsync();
-
     }
 
     private async Task ReconnectSignalRAsync()
@@ -51,11 +48,15 @@
             _HubConnection.On<CommentDto>("ReceiveCommentLikedStatus", HandleCommentLikeStatus);
             _HubConnection.On<CommentDto>("ReceiveCommentUnLiked", HandleCommentUnLikeStatus);
             _HubConnection.On<CommentDto>("ReceiveCommentUpdated", HandleCommentUpdate);
-            await _HubConnection.StartAsync();
+            if (_HubConnection.State == HubConnectionState.Disconnected)
+            {
+                await _HubConnection.StartAsync();
+            }
+
             await _HubConnection.InvokeAsync("JoinGroup", PostId.ToString());
         }
     }
-    
+
     private async Task LoadCommentsAsync(Guid postId)
     {
         try
@@ -64,10 +65,10 @@
             var token = await LocalStorage.GetItemAsync<string>("authToken");
             if (!string.IsNullOrEmpty(token))
             {
-                var response = await Http.GetAsync($"http://localhost:5049/api/comment/{postId}");
+                var response = await Http.GetAsync($"{settings.ApiBaseUrl}/api/comment/{postId}");
                 if (response.IsSuccessStatusCode)
                 {
-                    var loadedComments = await response.Content.ReadFromJsonAsync<List<CommentDto>>() ?? new();
+                    var loadedComments = await response.Content.ReadFromJsonAsync<List<CommentDto>>() ?? new List<CommentDto>();
                     comments = loadedComments.OrderByDescending(c => c.CreationDate).ToList();
                     StateHasChanged();
                 }
@@ -88,7 +89,6 @@
     }
 
 
-
     private readonly object _lock = new();
 
     private void UpdateCommentLikeCount(Guid commentId, int likeCount)
@@ -105,7 +105,6 @@
     }
 
 
-   
     private async Task HandleNewComment(CommentDto newComment)
     {
         if (newComment.PostId == PostId && comments.All(c => c.Id != newComment.Id))
@@ -135,6 +134,7 @@
             {
                 existingComment.IsLiked = comment.IsLiked;
             }
+
             InvokeAsync(StateHasChanged); // Обновить UI
         }
     }
@@ -159,6 +159,7 @@
             await _HubConnection.DisposeAsync();
         }
     }
+
     private async Task LoadAllCommentLikesAsync()
     {
         if (comments == null || comments.Count == 0)
@@ -177,7 +178,7 @@
         try
         {
             // Запрос на сервер для получения лайков для конкретного комментария
-            var response = await Http.GetAsync($"http://localhost:5049/api/comment/{commentId}/likes/count");
+            var response = await Http.GetAsync($"{settings.ApiBaseUrl}/api/comment/{commentId}/likes/count");
 
             if (response.IsSuccessStatusCode)
             {
@@ -225,7 +226,7 @@
                 return;
             }
 
-            var response = await Http.PostAsync($"http://localhost:5049/api/comment/{commentId}/likes", new StringContent("", Encoding.UTF8, "application/json"));
+            var response = await Http.PostAsync($"{settings.ApiBaseUrl}/api/comment/{commentId}/likes", new StringContent("", Encoding.UTF8, "application/json"));
 
 
             if (response.IsSuccessStatusCode)
@@ -275,7 +276,7 @@ else
     <div class="comment-list" @ref="commentListContainer">
         @foreach (var comment in comments)
         {
-            bool showComments = false;
+            var showComments = false;
 
             <div class="post-item  p-0">
                 <div class="comment-content">

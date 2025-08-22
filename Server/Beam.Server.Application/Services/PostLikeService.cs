@@ -6,9 +6,9 @@ using Beam.Infrastructure;
 using Beam.Infrastructure.Entities;
 using Beam.Infrastructure.Hubs;
 using Beam.Shared.Dto;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace Beam.Application.Services;
 
@@ -18,12 +18,14 @@ public class PostLikeService : IPostLikeService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IHubContext<ChatHub> _hubContext;
 
-    public PostLikeService(BeamDbContext dbContext, IHttpContextAccessor httpContextAccessor, IHubContext<ChatHub> hubContext)
+    public PostLikeService(BeamDbContext dbContext, IHttpContextAccessor httpContextAccessor,
+        IHubContext<ChatHub> hubContext)
     {
         _dbContext = dbContext;
         _httpContextAccessor = httpContextAccessor;
         _hubContext = hubContext;
     }
+
     public async Task ToggleLikeAsync(Guid postId, Guid userId)
     {
         // Ищем существующий лайк
@@ -56,9 +58,9 @@ public class PostLikeService : IPostLikeService
             LikesCount = likesCount
         });
         //var isLiked = await _dbContext.PostLikes
-           // .AnyAsync(like => like.UserId == userId && like.PostId == postId);
+        // .AnyAsync(like => like.UserId == userId && like.PostId == postId);
 
-       // await _hubContext.Clients.User(userId.ToString()).SendAsync("ReceivePostLikedStatus", postId, isLiked);
+        // await _hubContext.Clients.User(userId.ToString()).SendAsync("ReceivePostLikedStatus", postId, isLiked);
     }
 
 
@@ -81,16 +83,11 @@ public class PostLikeService : IPostLikeService
     public Guid GetCurrentUserId()
     {
         var httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext == null)
-        {
-            throw new UnauthorizedAccessException("HTTP контекст недоступен.");
-        }
+        if (httpContext == null) throw new UnauthorizedAccessException("HTTP контекст недоступен.");
 
         var userIdString = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdString))
-        {
             throw new UnauthorizedAccessException("Пользователь не аутентифицирован.");
-        }
 
         return Guid.Parse(userIdString);
     }
@@ -172,5 +169,4 @@ public class PostLikeService : IPostLikeService
 
         return postDto;
     }
-
 }

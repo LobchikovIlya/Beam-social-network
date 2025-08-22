@@ -1,15 +1,17 @@
 ﻿@page "/create-post"
-@attribute [Authorize]
-
 @using System.Net.Http.Headers
+@using Beam.UI.Configuration
 @using Beam.UI.Dtos
 @using Blazored.LocalStorage
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.IdentityModel.JsonWebTokens
+@attribute [Authorize]
 @inject HttpClient Http
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILocalStorageService LocalStorage
+@inject AppSettings settings
+
 
 <EditForm Model="postInputDto" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator/>
@@ -17,7 +19,8 @@
 
     <div class="form-group">
         <label for="Content"></label>
-        <InputTextArea id="Content" @bind-Value="userInput" class="form-control" placeholder="Новый пост..." @oninput="OnInputChange"/>
+        <InputTextArea id="Content" @bind-Value="userInput" class="form-control" placeholder="Новый пост..."
+                       @oninput="OnInputChange"/>
 
         <button type="submit" class="icon-btn" disabled="@isButtonDisabled">
             <i class="fa-solid fa-paper-plane @(isButtonDisabled ? "inactive" : "active")"></i>
@@ -28,7 +31,7 @@
 @code {
     private string userInput { get; set; } = string.Empty;
     private bool isButtonDisabled => string.IsNullOrWhiteSpace(userInput);
-    private PostInputDto postInputDto = new PostInputDto();
+    private PostInputDto postInputDto = new();
     private bool isAuthenticated = false;
 
     [Parameter] public EventCallback<PostDto> OnPostCreated { get; set; }
@@ -62,7 +65,7 @@
 
             postInputDto.Content = userInput;
 
-            var response = await Http.PostAsJsonAsync("/api/Post", postInputDto);
+            var response = await Http.PostAsJsonAsync($"{settings.ApiBaseUrl}/api/Post", postInputDto);
 
             if (response.IsSuccessStatusCode)
             {

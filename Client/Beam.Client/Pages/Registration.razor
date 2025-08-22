@@ -33,7 +33,7 @@
 }
 
 @code {
-    private RegisterDto registerModel = new RegisterDto();
+    private readonly RegisterDto registerModel = new();
     private string errorMessage;
 
     private async Task HandleRegistration()

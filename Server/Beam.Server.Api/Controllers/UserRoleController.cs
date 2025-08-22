@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Beam.Api.Controllers;
+
 [Authorize(Roles = "Admin")]
 [ApiController]
 [Route("api/userroles")]
@@ -23,18 +24,20 @@ public class UserRoleController : ControllerBase
 
         return Ok();
     }
+
     [HttpDelete("{userId}/remove/{roleId}")]
     public async Task<IActionResult> RemoveRoleToUserAsync(Guid userId, int roleId)
     {
         await _userRoleService.RemoveRoleToUserAsync(userId, roleId);
-        
+
         return NoContent();
     }
+
     [HttpGet("{userId}")]
     public async Task<IActionResult> GetURolesToUserAsync(Guid userId)
     {
         var roles = await _userRoleService.GetRolesToUserAsync(userId);
-        
+
         return Ok(roles);
     }
 }

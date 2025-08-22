@@ -1,5 +1,4 @@
-﻿
-@using Beam.UI.Pages
+﻿@using Beam.UI.Pages
 @inherits LayoutComponentBase
 
 <div class="container d-flex flex-column" style="height: 100vh;overflow:hidden;">
@@ -16,19 +15,21 @@
 
     <div class="content d-flex flex-grow-1 overflow-hidden">
         <aside class="sidebar  p-3" style="max-width: 250px; flex-shrink: 0;background-color: #1a1e29">
-            <NavMenu /> <!-- Компонент навигации -->
+            <NavMenu/> <!-- Компонент навигации -->
+            <UsersList/>
         </aside>
         <div class="wrapper">
-            <main class="main-content flex-grow-1 " style="max-height: calc(100vh - 56px); background: url('./images/image-phon.jpg') no-repeat top/cover ;">
+            <main class="main-content flex-grow-1 "
+                  style="max-height: calc(100vh - 56px); background: url('./images/image-phon.jpg') no-repeat top/cover ;">
                 @Body
             </main>
         </div>
         <aside class="sidebar  p-3" style="max-width: 250px; flex-shrink: 0;background-color: #1a1e29">
-            <UsersList/>
+          
         </aside>
-     
+
     </div>
-       
+
 </div>
 
 

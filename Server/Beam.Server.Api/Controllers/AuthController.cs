@@ -1,5 +1,4 @@
-﻿
-using Beam.Application.Services.Interfaces;
+﻿using Beam.Application.Services.Interfaces;
 using Beam.Core.Exceptions;
 using Beam.Infrastructure.Hubs;
 using Beam.Shared.Dto;
@@ -13,12 +12,13 @@ namespace Beam.Api.Controllers;
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
-    private readonly IUserService _userService;
+    private readonly IHubContext<ChatHub> _hubContext;
     private readonly ITokenService _tokenService;
     private readonly IUserRoleService _userRoleService;
-    private readonly IHubContext<ChatHub> _hubContext;
+    private readonly IUserService _userService;
 
-    public AuthController(IUserService userService, ITokenService tokenService,IUserRoleService userRoleService, IHubContext<ChatHub> hubContext)
+    public AuthController(IUserService userService, ITokenService tokenService, IUserRoleService userRoleService,
+        IHubContext<ChatHub> hubContext)
     {
         _userService = userService;
         _tokenService = tokenService;
@@ -51,9 +51,10 @@ public class AuthController : ControllerBase
             {
                 Console.WriteLine("❌ _hubContext == null, SignalR не работает!");
             }
+
             // Генерация JWT токена
-            var token = await _tokenService.GenerateTokenAsync(user); 
-        
+            var token = await _tokenService.GenerateTokenAsync(user);
+
             return Ok(new { Token = token });
         }
         catch (BadRequestException ex)
@@ -71,14 +72,11 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginDto input)
     {
         var user = await _userService.ValidateUserAsync(input.Tag, input.Password);
-        if (user == null)
-        {
-            return Unauthorized("Неверный логин или пароль.");
-        }
-       
+        if (user == null) return Unauthorized("Неверный логин или пароль.");
+
         await _userService.SetOnlineStatusAsync(user.Id, true);
-        
-        var token =await _tokenService.GenerateTokenAsync(user);
+
+        var token = await _tokenService.GenerateTokenAsync(user);
         var chatHub = _hubContext.Clients.All;
         await chatHub.SendAsync("UsersStatusChanged", user.Id, true);
         return Ok(new { Token = token });
@@ -89,7 +87,6 @@ public class AuthController : ControllerBase
     {
         await _userService.LogoutAsync(userId);
         await _hubContext.Clients.All.SendAsync("UsersStatusChanged", userId, false);
-        return Ok(new {message = "Пользователь вышел из системы."});
+        return Ok(new { message = "Пользователь вышел из системы." });
     }
 }
-    

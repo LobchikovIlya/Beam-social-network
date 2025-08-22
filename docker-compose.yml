@@ -1,0 +1,36 @@
+﻿version: "3.9"
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Server/Beam.Server.Api/Dockerfile
+    ports:
+      - "5001:80"
+    environment:
+      - ConnectionStrings__BeamDatabase=Host=database;Port=5432;Database=Beam;Username=postgres;Password=rootroot
+    depends_on:
+      - database
+
+  client:
+    build:
+      context: .
+      dockerfile: Client/Beam.Client/Dockerfile
+    ports:
+      - "5000:80"
+    depends_on:
+      - server
+
+  database:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: Beam
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: rootroot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

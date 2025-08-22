@@ -11,10 +11,10 @@ namespace Beam.Application.Services;
 
 public class CommentService : ICommentService
 {
-    private readonly BeamDbContext _dbContext;
     private readonly ICommentNotificationService _сommentNotificationService;
+    private readonly BeamDbContext _dbContext;
 
-    public CommentService(BeamDbContext dbContext,ICommentNotificationService сommentNotificationService)
+    public CommentService(BeamDbContext dbContext, ICommentNotificationService сommentNotificationService)
     {
         _dbContext = dbContext;
         _сommentNotificationService = сommentNotificationService;
@@ -32,7 +32,7 @@ public class CommentService : ICommentService
             CreationDate = c.CreationDate
         }).ToList();
     }
-   
+
     public async Task<CommentDto> GetByIdAsync(Guid id)
     {
         var comment = await _dbContext.Comments
@@ -44,14 +44,11 @@ public class CommentService : ICommentService
                 Author = c.Author,
                 Content = c.Content,
                 CreationDate = c.CreationDate,
-                LikesCount = c.CommentLikes.Count, // Подсчёт лайков
+                LikesCount = c.CommentLikes.Count // Подсчёт лайков
             })
             .FirstOrDefaultAsync();
 
-        if (comment == null)
-        {
-            throw new NotFoundException("Comment not found");
-        }
+        if (comment == null) throw new NotFoundException("Comment not found");
 
         return comment;
     }
@@ -75,25 +72,19 @@ public class CommentService : ICommentService
     }
 
 
-    
-
     public async Task<Guid> CreateAsync(CommentInputDto input, Guid postId)
     {
         var validator = new CommentInputDtoValidator();
         var validationResult = await validator.ValidateAsync(input);
-        if (!validationResult.IsValid)
-        {
-            throw new ValidationException();
-        }
-       
+        if (!validationResult.IsValid) throw new ValidationException();
+
         var newComment = new Comment
         {
             Id = Guid.NewGuid(),
             PostId = postId,
             Content = input.Content,
             Author = input.Author,
-            CreationDate = DateTimeOffset.UtcNow 
-           
+            CreationDate = DateTimeOffset.UtcNow
         };
 
         await _dbContext.Comments.AddAsync(newComment);
@@ -106,24 +97,20 @@ public class CommentService : ICommentService
             Author = newComment.Author,
             Content = newComment.Content,
             CreationDate = newComment.CreationDate,
-            LikesCount = newComment.CommentLikes.Count,
-
+            LikesCount = newComment.CommentLikes.Count
         };
         await _сommentNotificationService.NotifyCommentCreated(commentDto);
-        
+
         return newComment.Id;
     }
 
     public async Task<Guid> UpdateAsync(Guid id, CommentInputDto input)
     {
-        var comment = await _dbContext.Comments.FindAsync(id); 
-        if (comment == null)
-        {
-            throw new NotFoundException("Comment not found");
-        }
-        
+        var comment = await _dbContext.Comments.FindAsync(id);
+        if (comment == null) throw new NotFoundException("Comment not found");
+
         comment.Content = input.Content;
-        
+
         await _dbContext.SaveChangesAsync();
         var updatedComment = new CommentDto
         {
@@ -143,13 +130,9 @@ public class CommentService : ICommentService
     public async Task DeleteByIdAsync(Guid id)
     {
         var comment = await _dbContext.Comments.FindAsync(id);
-        if (comment == null)
-        {
-            throw new NotFoundException($"Comment id {id} not found");
-        }
+        if (comment == null) throw new NotFoundException($"Comment id {id} not found");
 
         _dbContext.Comments.Remove(comment);
         await _dbContext.SaveChangesAsync();
     }
-    
 }

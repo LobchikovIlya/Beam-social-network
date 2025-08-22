@@ -7,5 +7,4 @@ public class UserDto
     public string Name { get; set; }
     public DateTimeOffset CreationDate { get; set; }
     public bool IsOnline { get; set; }
-
 }

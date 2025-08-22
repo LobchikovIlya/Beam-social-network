@@ -1,20 +1,20 @@
 ﻿@page "/usersList"
 @using System.IdentityModel.Tokens.Jwt
-@using Beam.UI.Dtos
-@using Blazored.LocalStorage
 @using System.Net.Http.Headers
-@using System.Security.Claims
+@using Beam.Client.BlazorWasm.Services
 @using Beam.UI.Configuration
-@using Microsoft.AspNetCore.Authorization
+@using Beam.UI.Dtos
+@using Beam.UI.Interfaces
+@using Blazored.LocalStorage
 @inject HttpClient Http
 @inject ILocalStorageService LocalStorage
-@using Microsoft.AspNetCore.SignalR.Client
-@using Microsoft.EntityFrameworkCore.Metadata.Internal
 @inject NavigationManager Navigation
-@inject HubConnection _HubConnection
 @inject AppSettings settings
+@inject ITokenService TokenService
+@inject SignalService SignalRService
+@inject AuthService _AuthService
 
-<h4>Пользователи</h4>
+<h3></h3>
 
 @if (isLoading)
 {
@@ -26,15 +26,20 @@ else if (users is not null && users.Any())
         <ul>
             @foreach (var user in users)
             {
-                <li class="user-item">
-                    <a href="@($"/chat/{user.Id}")" class="user-link">
+                <li class="user-item @(NewMessageUsers.Contains(user.Id) ? "blink" : "")">
+                    <a href="@($"/chat/{user.Id}")" @onclick="() => OpenChat(user.Id)" class="user-link">
                         @user.Tag - @(OnlineUsers.ContainsKey(user.Id) && OnlineUsers[user.Id] ? "🟢" : "⚪")
+                        @if (SignalRService.UsersTyping.ContainsKey(user.Id)&& SignalRService.UsersTyping[user.Id])
+                        {
+                            <span class="typing-dots">
+                                <span></span><span></span><span></span>
+                            </span>
+                        }
                     </a>
                 </li>
             }
         </ul>
     </div>
-   
 }
 else
 {
@@ -44,77 +49,57 @@ else
 @code {
     private List<UserDto> users = new();
     private bool isLoading = true;
-    private Guid userId = Guid.Empty;
-    private Dictionary<Guid, bool> OnlineUsers = new();
-  
+    private Guid currentUserId = Guid.Empty;
+    private Dictionary<Guid, bool> OnlineUsers => SignalRService.OnlineUsers;
+    private HashSet<Guid> NewMessageUsers => SignalRService.NewMessageUsers;
+
 
     protected override async Task OnInitializedAsync()
     {
-       
+        _AuthService.OnLogin += HandleLogin;
+
+        _AuthService.OnLogout += HandleLogout;
+
+        SignalRService.OnUsersStatusChanged += HandleUserStatusChanged;
+        SignalRService.OnUsersListUpdated += HandleUserListUpdated;
+        SignalRService.OnNewMessage += HandleNewMessage;
+        SignalRService.OnUsersTypingChanged += () => InvokeAsync(StateHasChanged);
+
+
+    }
+
+
+
+    private async Task HandleLogin()
+    {
+        await SignalRService.StartAsync();
         await LoadUsersAsync();
-        await SetupSignalAsync();
-       
-       
     }
 
-    private async Task SetupSignalAsync()
+
+    private Task HandleLogout()
     {
-        var tokenJson = await LocalStorage.GetItemAsync<string>("authToken");
-        Console.WriteLine("Token from localStorage:", tokenJson);
-        var currentUserId = await GetUserIdFromTokenAsync();
-
-        if (string.IsNullOrEmpty(tokenJson) || !currentUserId.HasValue)
-        {
-            Console.WriteLine("Token or UserId is missing, skipping SignalR setup.");
-            return; 
-        }
-        Console.WriteLine($"Token from LocalStorage: {tokenJson}");
-        
-            _HubConnection.On<Guid, bool>("UsersStatusChanged", (userId, isOnline) =>
-            {
-                OnlineUsers[userId] = isOnline;
-
-                StateHasChanged();  // Обновление компонента
-            });
-            _HubConnection.On("UserListUpdated", async () =>
-            {
-                Console.WriteLine("📡 Получено событие 'UserListUpdated'. Перезагружаю список пользователей...");
-                await LoadUsersAsync();
-            });
-
-            try
-            {
-                if (_HubConnection.State == HubConnectionState.Disconnected)
-                {
-                    await _HubConnection.StartAsync();
-                }
-                Console.WriteLine("SignalR connection started successfully.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error starting SignalR connection: {ex.Message}");
-            }
-        
+        users.Clear();
+        OnlineUsers.Clear();
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
-    private async Task<Guid?> GetUserIdFromTokenAsync()
+    private void HandleUserStatusChanged(Guid userId, bool isOnline)
     {
-        var tokenJson = await LocalStorage.GetItemAsync<string>("authToken");
-        if (string.IsNullOrEmpty(tokenJson))
-            return null;
-
-        var handler = new JwtSecurityTokenHandler();
-        var token = handler.ReadJwtToken(tokenJson);
-        var userIdClaim = token.Claims.FirstOrDefault(c => c.Type == "sub"); // "sub" – стандартное имя для ID пользователя
-
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out Guid userId))
-        {
-            return userId;
-        }
-
-        return null;
+        StateHasChanged();
     }
 
+    private async Task HandleUserListUpdated()
+    {
+        // Сервер сообщил, что список пользователей обновился
+        await LoadUsersAsync();
+    }
+
+    private void HandleNewMessage(Guid fromUserId, string lastMessageText)
+    {
+        StateHasChanged();
+    }
 
     private async Task LoadUsersAsync()
     {
@@ -122,41 +107,30 @@ else
         {
             isLoading = true;
             StateHasChanged();
+
             var token = await LocalStorage.GetItemAsync<string>("authToken");
 
-            if (!string.IsNullOrEmpty(token))
+            if (string.IsNullOrEmpty(token))
             {
-                var handler = new JwtSecurityTokenHandler();
-                var jwt = handler.ReadJwtToken(token);
-                foreach (var claim in jwt.Claims)
+                return;
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.ApiBaseUrl}/api/users");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                users = await response.Content.ReadFromJsonAsync<List<UserDto>>() ?? new List<UserDto>();
+                foreach (var user in users)
                 {
-                    Console.WriteLine($"Claim: {claim.Type} = {claim.Value}");
-                }
-                var userIdClaims =jwt.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier
-                    ||c.Type == "sub"
-                    || c.Type == "uid")?.Value;
-                
-                var request = new HttpRequestMessage(HttpMethod.Get, $"{settings.ApiBaseUrl}/api/users");
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                var response = await Http.SendAsync(request);
-                if (response.IsSuccessStatusCode)
-                {
-                    users = await response.Content.ReadFromJsonAsync<List<UserDto>>() ?? new();
-                    foreach (var user in users)
-                    {
+                    if (!OnlineUsers.ContainsKey(user.Id))
                         OnlineUsers[user.Id] = user.IsOnline;
-                    }
-                    StateHasChanged();
-                  
-                }
-                else
-                {
-                    Console.WriteLine("Не удалось загрузить пользователей.");
                 }
             }
             else
             {
-                Console.WriteLine("Токен не найден.");
+                Console.WriteLine("Не удалось загрузить пользователей.");
             }
         }
         catch (Exception ex)
@@ -166,6 +140,26 @@ else
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
+
+    private void OpenChat(Guid userId)
+    {
+        // Открываем чат (например, навигация на /chat/{userId})
+        Navigation.NavigateTo($"/chat/{userId}");
+
+        // Сбрасываем флаг непрочитанного сообщения
+        SignalRService.ClearNewMessage(userId);
+    }
+
+    public void Dispose()
+    {
+        _AuthService.OnLogin -= HandleLogin;
+        _AuthService.OnLogout -= HandleLogout;
+        SignalRService.OnUsersStatusChanged -= HandleUserStatusChanged;
+        SignalRService.OnUsersListUpdated -= HandleUserListUpdated;
+        SignalRService.OnNewMessage -= HandleNewMessage;
+    }
+
 }

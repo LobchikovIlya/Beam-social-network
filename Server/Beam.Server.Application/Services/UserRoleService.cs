@@ -24,11 +24,9 @@ public class UserRoleService : IUserRoleService
 
     public async Task RemoveRoleToUserAsync(Guid userId, int roleId)
     {
-        var userToRole = await _dbContext.UsersToRoles.FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId);
-        if (userToRole == null)
-        {
-            throw new NotFoundException($"User with this role not found");
-        }
+        var userToRole =
+            await _dbContext.UsersToRoles.FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId);
+        if (userToRole == null) throw new NotFoundException("User with this role not found");
         _dbContext.UsersToRoles.Remove(userToRole);
         await _dbContext.SaveChangesAsync();
     }
@@ -39,7 +37,5 @@ public class UserRoleService : IUserRoleService
             .Where(ur => ur.UserId == userId)
             .Select(ur => ur.Role)
             .ToListAsync();
-
-
     }
 }
