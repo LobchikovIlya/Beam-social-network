@@ -14,8 +14,6 @@ public interface IUserService
 
     Task DeleteByIdAsync(Guid id);
 
-    Task<UserDto> ValidateUserAsync(string username, string password);
-    Task SetOnlineStatusAsync(Guid userId, bool isOnline);
-    Task LogoutAsync(Guid userId);
-    Task UpdateLastActivityAsync(Guid userId);
+   
+   
 }

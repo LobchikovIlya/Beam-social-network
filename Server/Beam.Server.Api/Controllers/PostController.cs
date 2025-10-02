@@ -64,7 +64,19 @@ public class PostController : ControllerBase
         if (!Guid.TryParse(userIdSt, out var userId)) return BadRequest("Invalid user ID.");
 
         var postId = await _postService.CreateAsync(input, userId);
-        var createdPost = await _postService.GetByIdAsync(postId);
+        var user = await _userService.GetByIdAsync(userId);
+        // var createdPost = await _postService.GetByIdAsync(postId);
+        var createdPost = new PostDto
+        {
+            Id = postId,
+            UserId = userId,
+            Content = input.Content,
+            UserName = user.Name,
+            CreationDate = DateTimeOffset.UtcNow,
+            LikesCount = 0,
+            IsLiked = false
+            
+        };
         await _postNotificationService.NotifyPostCreated(createdPost);
 
         return Ok(createdPost);

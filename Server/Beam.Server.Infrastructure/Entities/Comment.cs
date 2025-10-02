@@ -9,6 +9,6 @@ public class Comment
     public DateTimeOffset CreationDate { get; set; }
     public string Content { get; set; }
 
-    public virtual Post Post { get; set; }
+    public virtual Post Post { get; set; } 
     public virtual ICollection<CommentLike> CommentLikes { get; set; } = new List<CommentLike>();
 }

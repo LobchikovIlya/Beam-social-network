@@ -6,10 +6,11 @@ namespace Beam.Api.Middlewares;
 public class UserActivityMiddleware
 {
     private readonly RequestDelegate _next;
-
+   
     public UserActivityMiddleware(RequestDelegate next)
     {
         _next = next;
+      
     }
 
     public async Task InvokeAsync(HttpContext context, IUserService userService)
@@ -22,7 +23,11 @@ public class UserActivityMiddleware
 
         var userIdClaim = context.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
         if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
-            await userService.UpdateLastActivityAsync(userId);
+        {
+            var userActivityService = context.RequestServices.GetRequiredService<IUserActivityService>();
+            await userActivityService.UpdateLastActivityAsync(userId);
+        }
+            
 
         await _next(context);
     }

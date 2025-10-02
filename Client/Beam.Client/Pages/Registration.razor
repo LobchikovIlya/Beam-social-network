@@ -3,38 +3,47 @@
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 
-<h3>Регистрация</h3>
 
-<EditForm Model="registerModel" OnValidSubmit="HandleRegistration">
+
+<EditForm EditContext="_editContext" OnValidSubmit="HandleRegistration" class="login-form">
     <DataAnnotationsValidator/>
-    <ValidationSummary/>
+    @* <ValidationSummary/> *@
 
-    <div class="form-group">
-        <label for="tag">Тег:</label>
-        <InputText id="tag" @bind-Value="registerModel.Tag" class="form-control"/>
+    <div class="login-form-group">
+        <label for="username">Имя</label>
+        <InputText id="username" class="form-control-login" @bind-Value="registerModel.Name" placeholder="Введите имя" />
+        <ValidationMessage For="@(() => registerModel.Name)" />
+       
+    </div>
+    <div class="login-form-group">
+        <label for="tag">Тег</label>
+        <InputText id="tag" class="form-control-login" @bind-Value="registerModel.Tag" placeholder="Отображаемое имя " />
+        <ValidationMessage For="@(() => registerModel.Tag)"/>
     </div>
 
-    <div class="form-group">
-        <label for="name">Имя:</label>
-        <InputText id="name" @bind-Value="registerModel.Name" class="form-control"/>
+    <div class="login-form-group">
+        <label for="password">Пароль</label>
+        <InputText id="password" type="password" class="form-control-login" @bind-Value="registerModel.Password" placeholder="Введите пароль" />
+        <ValidationMessage For="@(() => registerModel.Password)" />
     </div>
 
-    <div class="form-group">
-        <label for="password">Пароль:</label>
-        <InputText id="password" @bind-Value="registerModel.Password" type="password" class="form-control"/>
-    </div>
-
-    <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+    <button type="submit" class="btn btn-login">
+        Регистрация
+        <span class="oi oi-arrow-right" aria-hidden="true"></span>
+    </button>
 </EditForm>
 
-@if (!string.IsNullOrEmpty(errorMessage))
-{
-    <p class="text-danger">@errorMessage</p>
-}
 
 @code {
     private readonly RegisterDto registerModel = new();
-    private string errorMessage;
+    private EditContext _editContext;
+    private ValidationMessageStore _messageStore;
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(registerModel);
+        _messageStore = new ValidationMessageStore(_editContext);
+    }
 
     private async Task HandleRegistration()
     {
@@ -48,14 +57,33 @@
             }
             else
             {
-                var error = await response.Content.ReadAsStringAsync();
-                errorMessage = "Ошибка: " + error;
+                var content = await response.Content.ReadFromJsonAsync<ValidationErrorResponse>();
+                _messageStore.Clear();
+                if (content?.Errors != null)
+                {
+                    foreach (var error in content.Errors)
+                    {
+                        var fieldIdentifier = new FieldIdentifier(registerModel, error.Key);
+                        foreach (var  errorMsg in error.Value)
+                        {
+                          _messageStore.Add(fieldIdentifier,errorMsg);  
+                        }
+                    }
+                }
+                _editContext.NotifyValidationStateChanged();
             }
         }
         catch (Exception ex)
         {
-            errorMessage = "Произошла ошибка: " + ex.Message;
+           _messageStore.Clear();
+           _messageStore.Add(new FieldIdentifier(registerModel,string.Empty),$"Ошибка: {ex.Message}");
+           _editContext.NotifyValidationStateChanged();
         }
+    }
+
+    public class ValidationErrorResponse
+    {
+        public Dictionary<string,string[]>Errors { get; set; }
     }
 
 }

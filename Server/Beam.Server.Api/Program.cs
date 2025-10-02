@@ -85,6 +85,7 @@ builder.Services.AddScoped<IPostLikeNotificationService, PostLikeNotificationSer
 builder.Services.AddHostedService<UserActivityMonitorService>();
 builder.Services.AddScoped<IUserActivityService, UserActivityService>();
 builder.Services.AddScoped<IChatMessageService, ChatMessageService>();
+builder.Services.AddScoped<IUserAuthService, UserAuthService>();
 
 builder.Services.AddAuthentication(options =>
     {

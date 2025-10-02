@@ -1,7 +1,7 @@
 ﻿@page "/create-post"
 @using System.Net.Http.Headers
+@using Beam.Shared.Dto
 @using Beam.UI.Configuration
-@using Beam.UI.Dtos
 @using Blazored.LocalStorage
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
@@ -57,12 +57,7 @@
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             var user = authState.User;
             var tag = user.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.UniqueName)?.Value;
-
-            if (user.Identity.IsAuthenticated)
-            {
-                postInputDto.UserName = tag;
-            }
-
+            
             postInputDto.Content = userInput;
 
             var response = await Http.PostAsJsonAsync($"{settings.ApiBaseUrl}/api/Post", postInputDto);

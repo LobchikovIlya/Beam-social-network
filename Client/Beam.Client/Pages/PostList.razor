@@ -2,8 +2,9 @@
 @using System.Net.Http.Headers
 @using System.Text
 @using Beam.Infrastructure.Hubs
+@using Beam.Shared.Dto
 @using Beam.UI.Configuration
-@using Beam.UI.Dtos
+
 @using Blazored.LocalStorage
 @using Microsoft.AspNetCore.SignalR
 @inject IJSRuntime JS
@@ -235,6 +236,51 @@ else if (posts == null || !posts.Any())
 }
 else
 {
+    @* <div class="posts-page-container max-w-3xl mx-auto p-6 space-y-6"> *@
+    @*     <!-- Кнопка создания поста --> *@
+    @*     <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-4"> *@
+    @*         <CreatePost OnPostCreated="HandleNewPostCreated"/> *@
+    @*     </div> *@
+    @* *@
+    @*     <!-- Список постов --> *@
+    @*     @foreach (var post in posts) *@
+    @*     { *@
+    @*         <div class="bg-white dark:bg-gray-900 shadow-md rounded-2xl p-5 space-y-4"> *@
+    @*          *@
+    @*             <!-- Заголовок --> *@
+    @*             <div class="flex justify-between items-center"> *@
+    @*                 <div class="flex items-center gap-2"> *@
+    @*                     <div class="w-10 h-10 bg-gray-400 rounded-full"></div> *@
+    @*                     <div> *@
+    @*                         <p class="font-semibold">@post.UserName</p> *@
+    @*                         <small class="text-gray-500">@post.CreationDate.ToString("g")</small> *@
+    @*                     </div> *@
+    @*                 </div> *@
+    @*                 <button @onclick="() => ToggleLike(post.Id)" class="flex items-center gap-1 text-gray-600"> *@
+    @*                     @if (post.IsLiked) *@
+    @*                     { *@
+    @*                         <i class="fas fa-heart text-red-500"></i> *@
+    @*                     } *@
+    @*                     else *@
+    @*                     { *@
+    @*                         <i class="far fa-heart"></i> *@
+    @*                     } *@
+    @*                     <span>@post.LikesCount</span> *@
+    @*                 </button> *@
+    @*             </div> *@
+
+    @*             <!-- Текст поста --> *@
+    @*             <p class="text-gray-800 dark:text-gray-200">@post.Content</p> *@
+    @* *@
+    @*             <!-- Комментарии --> *@
+    @*             <div class="space-y-3"> *@
+    @*                 <CommentPost PostId="@post.Id"/> *@
+    @*                 <CommentList PostId="@post.Id" @key="post.Id"/> *@
+    @*             </div> *@
+    @*         </div> *@
+    @*     } *@
+    @* </div> *@
+
     <div class="post-list-container">
         <div class="post-list" @ref="postListContainer">
             @foreach (var post in posts)
@@ -260,7 +306,7 @@ else
                                     </button>
                                 </div>
                             </div>
-
+    
                             <small class="creation-date">@post.CreationDate.ToString("g")</small>
                         </div>
                     </div>
@@ -268,11 +314,11 @@ else
                         <CommentPost PostId="@post.Id"/>
                         <CommentList PostId="@post.Id" @key="post.Id"/>
                     </div>
-
+    
                 </div>
             }
         </div>
-
+    
         <div class="create-post-footer">
             <CreatePost OnPostCreated="HandleNewPostCreated"/>
         </div>

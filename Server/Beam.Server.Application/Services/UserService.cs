@@ -6,6 +6,7 @@ using Beam.Infrastructure;
 using Beam.Infrastructure.Entities;
 using Beam.Infrastructure.Hubs;
 using Beam.Shared.Dto;
+using FluentValidation;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ValidationException = FluentValidation.ValidationException;
@@ -16,11 +17,13 @@ public class UserService : IUserService
 {
     private readonly BeamDbContext _dbContext;
     private readonly IHubContext<ChatHub> _hubContext;
+    private readonly IValidator<UserInputDto> _validator;
 
-    public UserService(BeamDbContext dbContext, IHubContext<ChatHub> hubContext)
+    public UserService(BeamDbContext dbContext, IHubContext<ChatHub> hubContext, IValidator<UserInputDto> validator)
     {
         _dbContext = dbContext;
         _hubContext = hubContext;
+        _validator = validator;
     }
 
     public async Task<List<UserDto>> GetAllAsync()
@@ -67,9 +70,10 @@ public class UserService : IUserService
 
     public async Task<UserDto> CreateAsync(UserInputDto input)
     {
-        var validator = new UserInputDtoValidator();
-        var validationResult = await validator.ValidateAsync(input);
+      
+        var validationResult = await _validator.ValidateAsync(input);
         if (!validationResult.IsValid) throw new ValidationException(validationResult.Errors);
+      
 
         var user = new User
         {
@@ -121,56 +125,10 @@ public class UserService : IUserService
     }
 
 
-    public async Task<UserDto> ValidateUserAsync(string tag, string password)
-    {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Tag == tag);
-        if (user == null) throw new NotFoundException("Пользователь не найден.");
+  
 
-        var isPasswordValid = PasswordHasher.VerifyPassword(user.PasswordHash, password);
-        if (!isPasswordValid) throw new BadRequestException("Неверный пароль.");
+   
+   
 
-        return new UserDto
-        {
-            Id = user.Id,
-            Name = user.Name,
-            Tag = user.Tag,
-            CreationDate = user.CreationDate,
-            IsOnline = user.IsOnline
-        };
-    }
-
-    public async Task SetOnlineStatusAsync(Guid userId, bool isOnline)
-    {
-        var user = await _dbContext.Users.FindAsync(userId);
-        if (user != null)
-        {
-            user.IsOnline = isOnline;
-            await _dbContext.SaveChangesAsync();
-            await _hubContext.Clients.All.SendAsync("UsersStatusChanged", userId, isOnline);
-            await _hubContext.Clients.All.SendAsync("UsersLIstUpdated");
-        }
-    }
-
-    public async Task LogoutAsync(Guid userId)
-    {
-        var user = await _dbContext.Users.FindAsync(userId);
-        if (user != null)
-        {
-            user.IsOnline = false;
-            await UpdateLastActivityAsync(userId);
-            await _dbContext.SaveChangesAsync();
-
-            await _hubContext.Clients.All.SendAsync("UserLIstUpdated");
-        }
-    }
-
-    public async Task UpdateLastActivityAsync(Guid userId)
-    {
-        var user = await _dbContext.Users.FindAsync(userId);
-        if (user != null)
-        {
-            user.LastActivity = DateTimeOffset.UtcNow;
-            await _dbContext.SaveChangesAsync();
-        }
-    }
+   
 }

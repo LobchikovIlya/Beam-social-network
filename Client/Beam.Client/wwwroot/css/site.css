@@ -30,8 +30,8 @@ a {
 
 }
 
-.btn-comment {
-    color: white;
+.btn-comment {                 
+    color: #f1ecec;
     font-size: 2em;
     background: transparent;
     border: 0;
@@ -85,22 +85,22 @@ a {
     overflow: hidden;
 }
 
-.form-control-login {
-    width: 250px;
-    padding: 10px;
-    border-radius: 10px;
-    margin: 15px 15px;
-    background-color: #f7f7f7; /* Легкий фон для поля ввода */
-    border: 1px solid #ccc; /* Светлая рамка */
-    font-size: 1em;
-}
+/*.form-control-login {*/
+/*    width: 250px;*/
+/*    padding: 10px;*/
+/*    border-radius: 10px;*/
+/*    margin: 15px 15px;*/
+/*    background-color: #f7f7f7; !* Легкий фон для поля ввода *!*/
+/*    border: 1px solid #ccc; !* Светлая рамка *!*/
+/*    font-size: 1em;*/
+/*}*/
 
 .form-control-comment {
     width: 100%;
     padding: 10px;
     border-radius: 15px;
     margin: 1px;
-    background-color: #f7f7f7; /* Легкий фон для поля ввода */
+    background-color: #f1ebeb; /* Легкий фон для поля ввода */
     border: 1px solid #ccc; /* Светлая рамка */
     font-size: 1em;
     resize: none; /* Отключаем возможность изменения размера поля пользователем */
@@ -131,14 +131,19 @@ a {
 
 
 .post-item {
-    display: flex;
-    flex-direction: column; /* Разместим элементы по вертикали */
-    max-width: 100%;
-    justify-content: start;
-    align-items: start;
-    color: whitesmoke;
-    box-sizing: border-box;
-    border-bottom: 2px solid gray;
+    /*display: flex;*/
+    /*flex-direction: column; !* Разместим элементы по вертикали *!*/
+    /*max-width: 100%;*/
+    /*justify-content: start;*/
+    /*align-items: start;*/
+    /*color: whitesmoke;*/
+    /*box-sizing: border-box;*/
+    /*border-bottom: 2px solid gray;*/
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 
 
 }
@@ -197,9 +202,12 @@ a {
 }
 
 .comment-block {
-    display: flex;
-    flex-direction: column;
-
+    /*display: flex;*/
+    /*flex-direction: column;*/
+    background: #f7f7f7;
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 10px;
 }
 
 .comment-content {
@@ -229,9 +237,16 @@ a {
 }
 
 .comment-item {
-    margin-bottom: 8px;
-    padding: 6px;
-    border-bottom: 1px solid #ddd;
+    /*margin-bottom: 8px;*/
+    /*padding: 6px;*/
+    /*border-bottom: 1px solid #ddd;*/
+    display: flex;
+    gap: 10px;
+    padding: 8px;
+    border-bottom: 1px solid #e0e0e0;
+}
+.comment-item:last-child {
+    border-bottom: none;
 }
 
 .comment-author {
@@ -277,7 +292,7 @@ p, h3, h4 {
 footer {
     display: flex;
     justify-content: right;
-    background-color: #212529;
+    background-color: #27282c;
     height: auto;
 }
 
@@ -287,11 +302,11 @@ footer {
     height: 100vh;
 }
 
-.post-item {
-    background-color: transparent;
-    border: none;
+/*.post-item {*/
+/*    background-color: transparent;*/
+/*    border: none;*/
 
-}
+/*}*/
 
 
 .create-post-area {
@@ -340,7 +355,7 @@ footer {
 }
 
 .gradient-line {
-    height: 4px;
+    height: 2px;
     background-image: linear-gradient(to right, #e0e0e0, #a9a9a9, #696969);
     width: 90%;
     margin: 20px auto;
@@ -355,9 +370,9 @@ footer {
 
 }
 
-.user-item {
-    list-style: none;
-}
+/*.user-item {*/
+/*    list-style: none;*/
+/*}*/
 
 .user-link {
     display: flex;
@@ -424,6 +439,27 @@ button {
     padding: 8px 16px;
     cursor: pointer;
 }
+.user-item {
+    list-style: none;        /* убираем маркеры */
+    padding: 8px 12px;       /* внутренние отступы для кликабельности */
+    margin-bottom: 4px;      /* отступ между элементами */
+    border-radius: 6px;      /* скругление, чтобы подсветка выглядела мягче */
+    position: relative;       /* важно для подсветки с анимацией */
+    overflow: hidden;         /* фон подсветки не вылезает за края */
+    cursor: pointer;          /* показывает, что элемент кликабельный */
+    transition: background 0.3s; /* плавное появление подсветки при hover */
+}
+
+/* Подсветка при новом сообщении */
+.user-item.blink {
+    animation: blink-animation 2s infinite;
+}
+
+@keyframes blink-animation {
+    0% { background-color: transparent; }
+    50% { background-color: cornflowerblue; }
+    100% { background-color: transparent; }
+}
 .user-item.blink {
     animation: blink-animation 2s infinite;
 }
@@ -434,35 +470,147 @@ button {
     100% { background-color: transparent; }
 }
 .typing-dots {
-    display: inline-block;
-    margin-left: 5px;
-    height: 10px;
-    vertical-align: middle;
+    display: inline-flex;        /* flex-контейнер */
+    align-items: center;          /* выравнивание точек и текста по центру */
+    gap: 4px;                     /* расстояние между точками и текстом */
+    font-size: 12px;
+    color: green;
 }
 
-.typing-dots span {
-    display: inline-block;
+.typing-dots span:nth-child(-n+3) {
     width: 6px;
     height: 6px;
-    margin-right: 5px;
-    background-color: green; /* цвет точек */
+    background-color: green;
     border-radius: 50%;
     animation: blink 1.4s infinite both;
 }
 
-.typing-dots span:nth-child(1) {
-    animation-delay: 0s;
-}
-
-.typing-dots span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.typing-dots span:nth-child(3) {
-    animation-delay: 0.4s;
-}
+.typing-dots span:nth-child(1) { animation-delay: 0s; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes blink {
     0%, 80%, 100% { opacity: 0; }
     40% { opacity: 1; }
 }
+
+.typing-text {
+    animation: fadeText 1.4s infinite;
+}
+
+@keyframes fadeText {
+    0%, 80%, 100% { opacity: 0; }
+    40% { opacity: 1; }
+}
+/* ======= Современный стиль для форм логина/регистрации ======= */
+.login-form {
+    width: 320px;
+    margin: 50px auto;
+    padding: 30px;
+    background: #1f1f1f; /* темный фон под темную тему */
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.login-form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+}
+
+.login-form-group label {
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #ccc; /* светлый цвет текста для темного фона */
+}
+
+.form-control-login {
+    padding: 10px 14px;
+    border: 1px solid #555; /* рамка для темного фона */
+    border-radius: 8px;
+    font-size: 14px;
+    background-color: #2b2b2b; /* темный фон полей */
+    color: white; /* текст белый */
+    transition: all 0.3s ease;
+}
+
+.form-control-login:focus {
+    border-color: #4a90e2; /* голубая рамка при фокусе */
+    box-shadow: 0 0 8px rgba(74, 144, 226, 0.5);
+    outline: none;
+}
+
+.btn-login {
+    width: 100%;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    background-color: #4a90e2; /* основной цвет кнопки */
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.btn-login:hover {
+    background-color: #357abd; /* темнее при наведении */
+    transform: translateY(-2px); /* лёгкий эффект при наведении */
+}
+
+.validation-summary {
+    color: #d9534f; /* красный для ошибок */
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+/* ======= Современный стиль для формы регистрации ======= */
+.form-group {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #ccc; /* светлый текст для темного фона */
+}
+
+.form-control {
+    padding: 10px 14px;
+    border: 1px solid #555; /* рамка для темного фона */
+    border-radius: 5px;
+    font-size: 14px;
+    background-color: #2b2b2b; /* темный фон поля */
+    color: white; /* текст белый */
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #4a90e2;
+    box-shadow: 0 0 8px rgba(74, 144, 226, 0.5);
+    outline: none;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    background-color: #4a90e2;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+

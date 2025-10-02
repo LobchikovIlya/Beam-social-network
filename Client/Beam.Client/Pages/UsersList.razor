@@ -2,6 +2,7 @@
 @using System.IdentityModel.Tokens.Jwt
 @using System.Net.Http.Headers
 @using Beam.Client.BlazorWasm.Services
+@using Beam.Shared.Dto
 @using Beam.UI.Configuration
 @using Beam.UI.Dtos
 @using Beam.UI.Interfaces
@@ -32,7 +33,7 @@ else if (users is not null && users.Any())
                         @if (SignalRService.UsersTyping.ContainsKey(user.Id)&& SignalRService.UsersTyping[user.Id])
                         {
                             <span class="typing-dots">
-                                <span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span class="typing-text">typing</span>
                             </span>
                         }
                     </a>
